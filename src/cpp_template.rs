@@ -10,10 +10,6 @@ const FILE_HEADER : &'static str = r#"
 #include <string.h>
 #include <stdlib.h>
 
-// External parsing functions
-extern int parse_feedback_frame(char* buffer, int len, Feedbacks* code, void **parameters);
-extern int parse_instruction_frame(char* buffer, int len, Instructions* code, void **parameters);
-
 "#;
 
 pub fn build_cpp_header(header_file_name: &String, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
@@ -96,6 +92,11 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
         }
     });
 
+    file.write_all(r#"
+
+    // External parsing functions
+    extern int parse_feedback_frame(char* buffer, int len, Feedbacks* code, void **parameters);
+    extern int parse_instruction_frame(char* buffer, int len, Instructions* code, void **parameters);"#.as_bytes())?;
     file.flush()?;
 
     Ok(())
@@ -107,7 +108,7 @@ pub fn build_cpp_source(source_file_name: &String, header_file: &Option<String>,
 
     file.write_all(FILE_HEADER.as_bytes())?;
     file.write_all(format!(r#"#include "{}"
-    "#, Path::new(&header_file.clone().unwrap_or(source_file_name.clone())).file_name().unwrap().to_str().unwrap().replace(".cpp", ".h").replace(".c", ".h")).as_bytes())?;
+"#, Path::new(&header_file.clone().unwrap_or(source_file_name.clone())).file_name().unwrap().to_str().unwrap().replace(".cpp", ".h").replace(".c", ".h")).as_bytes())?;
     
 //     // Add to frame implementation
 // Create a set of inline implementation for readability and debugging
@@ -253,7 +254,7 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
     codes.codes.iter().for_each(|(k, code)| {
         if let Some(fb) = &code.feedback {
             file.write_all(format!(r#"
-inline int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parameters)
+int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parameters)
 {{
     int position = 0;
 
@@ -324,7 +325,7 @@ inline int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params*
     codes.codes.iter().for_each(|(k, code)| {
         if let Some(inst) = &code.instruction {
             file.write_all(format!(r#"
-inline int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* parameters)
+int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* parameters)
 {{
     int position = 0;
 
@@ -414,7 +415,7 @@ int parse_feedback_frame(char* buffer, int len, Feedbacks* code, void **paramete
         "#, k, 
             code.name.to_lowercase(), 
             code.name.to_lowercase(),
-            code.name.to_lowercase(),
+            code.name.to_uppercase(),
             code.name.to_lowercase(),
             code.name.to_lowercase()
         ).as_bytes()).unwrap();
