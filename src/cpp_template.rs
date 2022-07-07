@@ -108,6 +108,7 @@ pub fn build_cpp_source(source_file_name: &String, header_file: &Option<String>,
 
     file.write_all(FILE_HEADER.as_bytes())?;
     file.write_all(format!(r#"#include "{}"
+#include <zephyr/zephyr.h>
 "#, Path::new(&header_file.clone().unwrap_or(source_file_name.clone())).file_name().unwrap().to_str().unwrap().replace(".cpp", ".h").replace(".c", ".h")).as_bytes())?;
     
 //     // Add to frame implementation
@@ -257,13 +258,19 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
 int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parameters)
 {{
     int position = 0;
+    const size_t p_size = sizeof(struct s_fb_{}_params);
 
-    if ((buffer == NULL) || (len == NULL) || (parameters == NULL))
-    return -1;
 
+    if (buffer == NULL)
+        return -1;
+
+    if ((p_size > 0) && (parameters == NULL))
+        return -1;
+        
     // Check the code
     if (buffer[position++] != {}) return -1;
         "#,
+            code.name.to_lowercase(),
             code.name.to_lowercase(),
             code.name.to_lowercase(),
             k
@@ -296,8 +303,8 @@ int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parame
     if (position < len) {{
         int copy_len = (len) - position;
         // free buffer if not null
-        if (parameters->{} != NULL) free(parameters->{});
-        parameters->{} = (char*)malloc(copy_len+1);
+        if (parameters->{} != NULL) k_free(parameters->{});
+        parameters->{} = (char*)k_malloc(copy_len+1);
         strncpy(parameters->{}, &buffer[position], copy_len);
         parameters->{}[copy_len] = 0; // Ensure last character is null
         position += copy_len;
@@ -328,13 +335,19 @@ int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parame
 int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* parameters)
 {{
     int position = 0;
+    const size_t p_size = sizeof(struct s_inst_{}_params);
 
-    if ((buffer == NULL) || (len == NULL) || (parameters == NULL))
-    return -1;
+
+    if (buffer == NULL)
+        return -1;
+
+    if ((p_size > 0) && (parameters == NULL))
+        return -1;
 
     // Check the code
     if (buffer[position++] != {}) return -1;
         "#,
+            code.name.to_lowercase(),
             code.name.to_lowercase(),
             code.name.to_lowercase(),
             k
@@ -367,8 +380,8 @@ int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* p
     if (position < len) {{
         int copy_len = (len) - position;
         // free buffer if not null
-        if (parameters->{} != NULL) free(parameters->{});
-        parameters->{} = (char*)malloc(copy_len+1);
+        if (parameters->{} != NULL) k_free(parameters->{});
+        parameters->{} = (char*)k_malloc(copy_len+1);
         strncpy(parameters->{}, &buffer[position], copy_len);
         parameters->{}[copy_len] = 0; // Ensure last character is null
         position += copy_len;
@@ -408,12 +421,14 @@ int parse_feedback_frame(char* buffer, int len, Feedbacks* code, void **paramete
         if code.feedback.is_some() {
             file.write_all(format!(r#"
         case {}:
-            *parameters = malloc(sizeof(struct s_fb_{}_params));
-            memset(*parameters, 0, sizeof(struct s_fb_{}_params));
-            *code = FB_{};
-            return parse_feedback_{}_frame(buffer, len, (struct s_fb_{}_params*)*parameters);
+            {{
+                const size_t psize = sizeof(struct s_fb_{}_params);
+                *parameters = k_malloc(psize);
+                memset(*parameters, 0, psize);
+                *code = FB_{};
+                return parse_feedback_{}_frame(buffer, len, (struct s_fb_{}_params*)*parameters);
+            }}
         "#, k, 
-            code.name.to_lowercase(), 
             code.name.to_lowercase(),
             code.name.to_uppercase(),
             code.name.to_lowercase(),
@@ -445,12 +460,14 @@ int parse_instruction_frame(char* buffer, int len, Instructions* code, void **pa
         if code.instruction.is_some() {
             file.write_all(format!(r#"
         case {}:
-            *parameters = malloc(sizeof(struct s_inst_{}_params));
-            memset(*parameters, 0, sizeof(struct s_inst_{}_params));
-            *code = INST_{};
-            return parse_instruction_{}_frame(buffer, len, (struct s_inst_{}_params*)*parameters);
+            {{
+                const size_t psize = sizeof(struct s_inst_{}_params);
+                *parameters = k_malloc(psize);
+                memset(*parameters, 0, psize);
+                *code = INST_{};
+                return parse_instruction_{}_frame(buffer, len, (struct s_inst_{}_params*)*parameters);
+            }}
         "#, k, 
-            code.name.to_lowercase(), 
             code.name.to_lowercase(),
             code.name.to_uppercase(),
             code.name.to_lowercase(),
