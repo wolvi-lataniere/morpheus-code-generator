@@ -133,6 +133,7 @@ int build_feedback_{}_frame(char* buffer, int *len, struct s_fb_{}_params* param
 
             file.write_all(fb.parameters.iter().map(|p| {
                 match p.data_type {
+                    InstFeedbackParameterType::Bool |
                     InstFeedbackParameterType::Uint8 |
                     InstFeedbackParameterType::Int8 => format!(r#"
     if (position < *len) buffer[position++] = (uint8_t) parameters->{};
@@ -202,6 +203,7 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
 
             file.write_all(inst.parameters.iter().map(|p| {
                 match p.data_type {
+                    InstFeedbackParameterType::Bool |
                     InstFeedbackParameterType::Uint8 |
                     InstFeedbackParameterType::Int8 => format!(r#"
     if (position < *len) buffer[position++] = (uint8_t) parameters->{};
@@ -278,6 +280,7 @@ int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parame
 
             file.write_all(fb.parameters.iter().map(|p| {
                 match p.data_type {
+                    InstFeedbackParameterType::Bool |
                     InstFeedbackParameterType::Uint8 |
                     InstFeedbackParameterType::Int8 => format!(r#"
     if (position < len) parameters->{} = ({}) buffer[position++] ;
@@ -355,6 +358,7 @@ int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* p
 
             file.write_all(inst.parameters.iter().map(|p| {
                 match p.data_type {
+                    InstFeedbackParameterType::Bool |
                     InstFeedbackParameterType::Uint8 |
                     InstFeedbackParameterType::Int8 => format!(r#"
     if (position < len) parameters->{} = ({}) buffer[position++] ;

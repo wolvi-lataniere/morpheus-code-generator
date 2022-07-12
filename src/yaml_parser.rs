@@ -26,6 +26,7 @@ pub enum InstFeedbackParameterType
     Int32,
     Int16,
     Int8,
+    Bool,
     String
 }
 
@@ -41,6 +42,7 @@ impl InstFeedbackParameterType {
             Self::Int32 => "i32",
             Self::Int16 => "i16",
             Self::Int8 => "i8",
+            Self::Bool => "bool"
         }.into()
     }
 
@@ -55,6 +57,7 @@ impl InstFeedbackParameterType {
             Self::Int32 => "int32_t",
             Self::Int16 => "int16_t",
             Self::Int8 => "int8_t",
+            Self::Bool => "bool"
         }.into()
     }
 
@@ -69,6 +72,7 @@ impl InstFeedbackParameterType {
             Self::Int32 => 4,
             Self::Int16 => 2,
             Self::Int8 => 1,
+            Self::Bool => 1
         }
     }
 }
@@ -116,6 +120,7 @@ impl TryFrom<String> for InstFeedbackParameterType {
             "i32" | "int32" => Ok(Self::Int32),
             "i64" | "int64" => Ok(Self::Int64),
             "string" | "str" => Ok(Self::String),
+            "bool" | "boolean" => Ok(Self::Bool),
             _ => Err(format!("Unknown type {}", from))
         }
     }
