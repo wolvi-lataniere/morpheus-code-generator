@@ -7,14 +7,14 @@ use std::fmt::{Debug,Formatter};
 /// Example:
 /// ```
 /// let from : String = "u8".into();
-/// if let Some(t) = InstFeedbackParameterType::try_from(from) {
+/// if let Some(t) = ParameterType::try_from(from) {
 ///    
 /// } else { 
 ///    panic!("Failed decoding");
 /// }
 /// ```
 #[derive(PartialEq,Eq,Clone,Copy)]
-pub enum InstFeedbackParameterType 
+pub enum ParameterType 
 {
     Uint64,
     Uint32,
@@ -28,7 +28,7 @@ pub enum InstFeedbackParameterType
     String
 }
 
-impl InstFeedbackParameterType {
+impl ParameterType {
     pub fn to_rust_type_string(&self) -> String {
         match self {
             Self::String => "String",
@@ -90,13 +90,13 @@ impl InstFeedbackParameterType {
     }
 }
 
-impl Debug for InstFeedbackParameterType {
+impl Debug for ParameterType {
    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), std::fmt::Error> { 
         formatter.write_str(self.to_string().as_str())
     }
 }
 
-impl TryFrom<String> for InstFeedbackParameterType {
+impl TryFrom<String> for ParameterType {
     type Error = String;
 
     fn try_from(from: String) -> Result<Self, Self::Error> {

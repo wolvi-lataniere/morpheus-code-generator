@@ -6,11 +6,11 @@ use serde_derive::Deserialize;
 
 mod types;
 
-pub use types::InstFeedbackParameterType;
+pub use types::ParameterType;
 
-struct InstFeedbackParameterTypeVisitor;
-impl<'de> Visitor<'de> for InstFeedbackParameterTypeVisitor {
-    type Value = InstFeedbackParameterType;
+struct ParameterTypeVisitor;
+impl<'de> Visitor<'de> for ParameterTypeVisitor {
+    type Value = ParameterType;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a string representing type [uXX, iXX, string or bool]")
@@ -20,7 +20,7 @@ impl<'de> Visitor<'de> for InstFeedbackParameterTypeVisitor {
     where
         E: de::Error,
     {
-        match InstFeedbackParameterType::try_from(String::from(value))
+        match ParameterType::try_from(String::from(value))
         {
             Ok(v) => Ok(v),
             Err(e) => Err(E::invalid_value(Unexpected::Str(value), &self))
@@ -28,12 +28,12 @@ impl<'de> Visitor<'de> for InstFeedbackParameterTypeVisitor {
     }
 }
 
-impl<'de> de::Deserialize<'de> for InstFeedbackParameterType {
-    fn deserialize<D>(deserializer: D) -> Result<InstFeedbackParameterType, D::Error>
+impl<'de> de::Deserialize<'de> for ParameterType {
+    fn deserialize<D>(deserializer: D) -> Result<ParameterType, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(InstFeedbackParameterTypeVisitor)
+        deserializer.deserialize_str(ParameterTypeVisitor)
     }
 }
 
@@ -42,7 +42,7 @@ pub struct InstFeedbackParameter
 {
     pub name: String,
     pub description: String,
-    pub data_type: InstFeedbackParameterType
+    pub data_type: ParameterType
 }
 
 #[derive(Deserialize,Debug)]

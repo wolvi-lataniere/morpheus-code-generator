@@ -1,7 +1,7 @@
 
 use serde::de::value::BoolDeserializer;
 
-use crate::yaml_parser::{self, InstFeedbackParameterType};
+use crate::yaml_parser::{self, ParameterType};
 use std::io::{self, Write};
 use std::fs::File;
 
@@ -77,24 +77,24 @@ impl Feedbacks {
             let params = &code_fb.parameters.iter().map(|param| {
                 [
                     match param.data_type {
-                        InstFeedbackParameterType::Bool => "&[if ".as_bytes(),
-                        InstFeedbackParameterType::Int8 |
-                        InstFeedbackParameterType::Uint8 => "&[".as_bytes(),
-                        InstFeedbackParameterType::String => "".as_bytes(),
+                        ParameterType::Bool => "&[if ".as_bytes(),
+                        ParameterType::Int8 |
+                        ParameterType::Uint8 => "&[".as_bytes(),
+                        ParameterType::String => "".as_bytes(),
                         _ => "&".as_bytes()
                     },
                     param.name.as_bytes(),
                 match param.data_type {
-                    InstFeedbackParameterType::Uint8 => "] as &[u8]".as_bytes(),
-                    InstFeedbackParameterType::Bool => " {1u8} else {0u8}]".as_bytes(),
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => ".to_le_bytes()".as_bytes(),
-                    InstFeedbackParameterType::Int8 => " as u8]".as_bytes(),
-                    InstFeedbackParameterType::String => ".as_bytes()".as_bytes()
+                    ParameterType::Uint8 => "] as &[u8]".as_bytes(),
+                    ParameterType::Bool => " {1u8} else {0u8}]".as_bytes(),
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => ".to_le_bytes()".as_bytes(),
+                    ParameterType::Int8 => " as u8]".as_bytes(),
+                    ParameterType::String => ".as_bytes()".as_bytes()
                 }
                 ].concat()
             }).collect::<Vec<Vec<u8>>>().join(",".as_bytes());
@@ -120,27 +120,27 @@ impl Feedbacks {
             let mut start = 1;
             let params_parsing = &code_fb.parameters.iter().map(|param| {
                 let data_len =  match param.data_type {
-                    InstFeedbackParameterType::Bool |  
-                    InstFeedbackParameterType::Uint8 |
-                    InstFeedbackParameterType::Int8  => 1,
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Int16  => 2,
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Int32 => 4,
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 => 8,
-                    InstFeedbackParameterType::String => -1
+                    ParameterType::Bool |  
+                    ParameterType::Uint8 |
+                    ParameterType::Int8  => 1,
+                    ParameterType::Uint16 |
+                    ParameterType::Int16  => 2,
+                    ParameterType::Uint32 |
+                    ParameterType::Int32 => 4,
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 => 8,
+                    ParameterType::String => -1
                 };
                 let res = [format!("let {} = ", param.name).as_bytes(),
                 // Front content
                 match param.data_type {
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => format!("{}::from_le_bytes(", param.data_type.to_rust_type_string()),
-                    InstFeedbackParameterType::String => "String::from_utf8(".into(),
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => format!("{}::from_le_bytes(", param.data_type.to_rust_type_string()),
+                    ParameterType::String => "String::from_utf8(".into(),
                     _ => "".into()
                 }.as_bytes(),
                 match data_len {
@@ -150,15 +150,15 @@ impl Feedbacks {
                 }.as_bytes(),
                 // Back content
                 match param.data_type {
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => ".try_into().unwrap())".as_bytes(),
-                    InstFeedbackParameterType::String => ".to_vec()).unwrap()".as_bytes(),
-                    InstFeedbackParameterType::Int8 => " as i8".as_bytes(),
-                    InstFeedbackParameterType::Bool => " != 0u8".as_bytes(),
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => ".try_into().unwrap())".as_bytes(),
+                    ParameterType::String => ".to_vec()).unwrap()".as_bytes(),
+                    ParameterType::Int8 => " as i8".as_bytes(),
+                    ParameterType::Bool => " != 0u8".as_bytes(),
                     _ => "".as_bytes()
                 },
                 ";\n".as_bytes()
@@ -169,19 +169,19 @@ impl Feedbacks {
 
             let params = &code_fb.parameters.iter().map(|param| {
                 format!("{}{}{}",
-                if let InstFeedbackParameterType::Bool = param.data_type { "if "} else {""},
+                if let ParameterType::Bool = param.data_type { "if "} else {""},
                 param.name,
                 match param.data_type {
-                    InstFeedbackParameterType::Uint8 => "",
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => ".to_le_bytes()",
-                    InstFeedbackParameterType::Int8 => " as u8",
-                    InstFeedbackParameterType::Bool => " {{ 1u8 }} else {{ 0u8 }}", 
-                    InstFeedbackParameterType::String => ".as_bytes()"
+                    ParameterType::Uint8 => "",
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => ".to_le_bytes()",
+                    ParameterType::Int8 => " as u8",
+                    ParameterType::Bool => " {{ 1u8 }} else {{ 0u8 }}", 
+                    ParameterType::String => ".as_bytes()"
                 }).as_bytes().into()
             }).collect::<Vec<Vec<u8>>>().join(",".as_bytes());
 
@@ -215,24 +215,24 @@ impl Instructions {
             let params = &code_fb.parameters.iter().map(|param| {
                 [
                     match param.data_type {
-                        InstFeedbackParameterType::Int8 |
-                        InstFeedbackParameterType::Uint8 => "&[".as_bytes(),
-                        InstFeedbackParameterType::Bool => "&[if ".as_bytes(),
-                        InstFeedbackParameterType::String => "".as_bytes(),
+                        ParameterType::Int8 |
+                        ParameterType::Uint8 => "&[".as_bytes(),
+                        ParameterType::Bool => "&[if ".as_bytes(),
+                        ParameterType::String => "".as_bytes(),
                         _ => "&".as_bytes()
                     },
                     param.name.as_bytes(),
                 match param.data_type {
-                    InstFeedbackParameterType::Uint8 => "] as &[u8]".as_bytes(),
-                    InstFeedbackParameterType::Bool => " {1u8} else {0u8}]".as_bytes(),
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => ".to_le_bytes()".as_bytes(),
-                    InstFeedbackParameterType::Int8 => " as u8]".as_bytes(),
-                    InstFeedbackParameterType::String => ".as_bytes()".as_bytes()
+                    ParameterType::Uint8 => "] as &[u8]".as_bytes(),
+                    ParameterType::Bool => " {1u8} else {0u8}]".as_bytes(),
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => ".to_le_bytes()".as_bytes(),
+                    ParameterType::Int8 => " as u8]".as_bytes(),
+                    ParameterType::String => ".as_bytes()".as_bytes()
                 }
                 ].concat()
             }).collect::<Vec<Vec<u8>>>().join(",".as_bytes());
@@ -258,27 +258,27 @@ impl Instructions {
             let mut start = 1;
             let params_parsing = &code_fb.parameters.iter().map(|param| {
                 let data_len =  match param.data_type {
-                    InstFeedbackParameterType::Bool |
-                    InstFeedbackParameterType::Uint8 |
-                    InstFeedbackParameterType::Int8  => 1,
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Int16  => 2,
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Int32 => 4,
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 => 8,
-                    InstFeedbackParameterType::String => -1
+                    ParameterType::Bool |
+                    ParameterType::Uint8 |
+                    ParameterType::Int8  => 1,
+                    ParameterType::Uint16 |
+                    ParameterType::Int16  => 2,
+                    ParameterType::Uint32 |
+                    ParameterType::Int32 => 4,
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 => 8,
+                    ParameterType::String => -1
                 };
                 let res = [format!("let {} = ", param.name).as_bytes(),
                 // Front content
                 match param.data_type {
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => format!("{}::from_le_bytes(", param.data_type.to_rust_type_string()),
-                    InstFeedbackParameterType::String => "String::from_utf8(".into(),
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => format!("{}::from_le_bytes(", param.data_type.to_rust_type_string()),
+                    ParameterType::String => "String::from_utf8(".into(),
                     _ => "".into()
                 }.as_bytes(),
                 match data_len {
@@ -288,15 +288,15 @@ impl Instructions {
                 }.as_bytes(),
                 // Back content
                 match param.data_type {
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => ".try_into().unwrap())".as_bytes(),
-                    InstFeedbackParameterType::String => ".to_vec()).unwrap()".as_bytes(),
-                    InstFeedbackParameterType::Int8 => " as i8".as_bytes(),
-                    InstFeedbackParameterType::Bool => " != 0u8".as_bytes(),
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => ".try_into().unwrap())".as_bytes(),
+                    ParameterType::String => ".to_vec()).unwrap()".as_bytes(),
+                    ParameterType::Int8 => " as i8".as_bytes(),
+                    ParameterType::Bool => " != 0u8".as_bytes(),
                     _ => "".as_bytes()
                 },
                 ";\n".as_bytes()
@@ -307,19 +307,19 @@ impl Instructions {
 
             let params = &code_fb.parameters.iter().map(|param| {
                 format!("{}{}{}",
-                if let InstFeedbackParameterType::Bool = param.data_type { "if "} else {""},
+                if let ParameterType::Bool = param.data_type { "if "} else {""},
                 param.name,
                 match param.data_type {
-                    InstFeedbackParameterType::Uint8 => "",
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Uint64 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Int16 => ".to_le_bytes()",
-                    InstFeedbackParameterType::Int8 => " as u8",
-                    InstFeedbackParameterType::Bool => " {{ 1u8 }} else {{ 0u8 }}", 
-                    InstFeedbackParameterType::String => ".as_bytes()"
+                    ParameterType::Uint8 => "",
+                    ParameterType::Uint16 |
+                    ParameterType::Uint32 |
+                    ParameterType::Uint64 |
+                    ParameterType::Int64 |
+                    ParameterType::Int32 |
+                    ParameterType::Int16 => ".to_le_bytes()",
+                    ParameterType::Int8 => " as u8",
+                    ParameterType::Bool => " {{ 1u8 }} else {{ 0u8 }}", 
+                    ParameterType::String => ".as_bytes()"
                 }).as_bytes().into()
             }).collect::<Vec<Vec<u8>>>().join(",".as_bytes());
 

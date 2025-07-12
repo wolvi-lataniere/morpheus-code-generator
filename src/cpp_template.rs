@@ -1,5 +1,5 @@
 
-use crate::yaml_parser::{self, InstFeedbackParameterType};
+use crate::yaml_parser::{self, ParameterType};
 use std::io::{self, Write};
 use std::fs::File;
 use std::path::Path;
@@ -133,18 +133,18 @@ int build_feedback_{}_frame(char* buffer, int *len, struct s_fb_{}_params* param
 
             file.write_all(fb.parameters.iter().map(|p| {
                 match p.data_type {
-                    InstFeedbackParameterType::Bool |
-                    InstFeedbackParameterType::Uint8 |
-                    InstFeedbackParameterType::Int8 => format!(r#"
+                    ParameterType::Bool |
+                    ParameterType::Uint8 |
+                    ParameterType::Int8 => format!(r#"
     if (position < *len) buffer[position++] = (uint8_t) parameters->{};
     else return -1;
     "#, p.name),
-                    InstFeedbackParameterType::Int16 |
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Uint64 => format!(r#"
+                    ParameterType::Int16 |
+                    ParameterType::Uint16 |
+                    ParameterType::Int32 |
+                    ParameterType::Uint32 |
+                    ParameterType::Int64 |
+                    ParameterType::Uint64 => format!(r#"
     if ((position + {}) < *len) {{
         memcpy(&buffer[position], &parameters->{}, {});
         position += {};
@@ -155,7 +155,7 @@ int build_feedback_{}_frame(char* buffer, int *len, struct s_fb_{}_params* param
                     p.name, p.data_type.size(),
                     p.data_type.size()),
 
-                    InstFeedbackParameterType::String =>format!(r#"
+                    ParameterType::String =>format!(r#"
     if (position < *len) {{
         int max_len= (*len) - position;
         int string_len = strlen(parameters->{});
@@ -203,18 +203,18 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
 
             file.write_all(inst.parameters.iter().map(|p| {
                 match p.data_type {
-                    InstFeedbackParameterType::Bool |
-                    InstFeedbackParameterType::Uint8 |
-                    InstFeedbackParameterType::Int8 => format!(r#"
+                    ParameterType::Bool |
+                    ParameterType::Uint8 |
+                    ParameterType::Int8 => format!(r#"
     if (position < *len) buffer[position++] = (uint8_t) parameters->{};
     else return -1;
     "#, p.name),
-                    InstFeedbackParameterType::Int16 |
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Uint64 => format!(r#"
+                    ParameterType::Int16 |
+                    ParameterType::Uint16 |
+                    ParameterType::Int32 |
+                    ParameterType::Uint32 |
+                    ParameterType::Int64 |
+                    ParameterType::Uint64 => format!(r#"
     if ((position + {}) < *len) {{
         memcpy(&buffer[position], &parameters->{}, {});
         position += {};
@@ -225,7 +225,7 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
                     p.name, p.data_type.size(),
                     p.data_type.size()),
 
-                    InstFeedbackParameterType::String =>format!(r#"
+                    ParameterType::String =>format!(r#"
     if (position < *len) {{
         int max_len= (*len) - position;
         int string_len = strlen(parameters->{});
@@ -280,22 +280,22 @@ int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parame
 
             file.write_all(fb.parameters.iter().map(|p| {
                 match p.data_type {
-                    InstFeedbackParameterType::Bool =>
+                    ParameterType::Bool =>
                     format!(r#"
     if (position < len) parameters->{} = (buffer[position++] != 0) ;
     else return -1;
     "#, p.name),
-                    InstFeedbackParameterType::Uint8 |
-                    InstFeedbackParameterType::Int8 => format!(r#"
+                    ParameterType::Uint8 |
+                    ParameterType::Int8 => format!(r#"
     if (position < len) parameters->{} = ({}) buffer[position++] ;
     else return -1;
     "#, p.name, p.data_type.to_cpp_type_string()),
-                    InstFeedbackParameterType::Int16 |
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Uint64 => format!(r#"
+                    ParameterType::Int16 |
+                    ParameterType::Uint16 |
+                    ParameterType::Int32 |
+                    ParameterType::Uint32 |
+                    ParameterType::Int64 |
+                    ParameterType::Uint64 => format!(r#"
     if ((position + {}) < len) {{
         memcpy(&parameters->{}, &buffer[position], {});
         position += {};
@@ -306,7 +306,7 @@ int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parame
                     p.name, p.data_type.size(),
                     p.data_type.size()),
 
-                    InstFeedbackParameterType::String =>format!(r#"
+                    ParameterType::String =>format!(r#"
     if (position < len) {{
         int copy_len = (len) - position;
         // free buffer if not null
@@ -362,21 +362,21 @@ int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* p
 
             file.write_all(inst.parameters.iter().map(|p| {
                 match p.data_type {
-                    InstFeedbackParameterType::Bool => format!(r#"
+                    ParameterType::Bool => format!(r#"
     if (position < len) parameters->{} = (buffer[position++] != 0);
     else return -1;
     "#, p.name),
-                    InstFeedbackParameterType::Uint8 |
-                    InstFeedbackParameterType::Int8 => format!(r#"
+                    ParameterType::Uint8 |
+                    ParameterType::Int8 => format!(r#"
     if (position < len) parameters->{} = ({}) buffer[position++] ;
     else return -1;
     "#, p.name, p.data_type.to_cpp_type_string()),
-                    InstFeedbackParameterType::Int16 |
-                    InstFeedbackParameterType::Uint16 |
-                    InstFeedbackParameterType::Int32 |
-                    InstFeedbackParameterType::Uint32 |
-                    InstFeedbackParameterType::Int64 |
-                    InstFeedbackParameterType::Uint64 => format!(r#"
+                    ParameterType::Int16 |
+                    ParameterType::Uint16 |
+                    ParameterType::Int32 |
+                    ParameterType::Uint32 |
+                    ParameterType::Int64 |
+                    ParameterType::Uint64 => format!(r#"
     if ((position + {}) < len) {{
         memcpy(&parameters->{}, &buffer[position], {});
         position += {};
@@ -387,7 +387,7 @@ int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* p
                     p.name, p.data_type.size(),
                     p.data_type.size()),
 
-                    InstFeedbackParameterType::String =>format!(r#"
+                    ParameterType::String =>format!(r#"
     if (position < len) {{
         int copy_len = (len) - position;
         // free buffer if not null
