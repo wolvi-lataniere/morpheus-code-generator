@@ -21,7 +21,7 @@
               pname = "morpheus-code-generator";
               version = "dev";
               src = ./avarice/.;
-             buildInputs = with pkgs;[cargo rustup git];
+             buildInputs = with pkgs;[cargo rustup rustc git];
               configurePhase=''
               '';
               buildPhase = ''
@@ -32,7 +32,7 @@
           };
 
           devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs;[cargo rustup git];
+          buildInputs = with pkgs;[cargo rustc git];
         };
         }
     );
