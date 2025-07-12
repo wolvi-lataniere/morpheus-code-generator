@@ -1,4 +1,7 @@
-use crate::yaml_parser::*;
+mod parsing {
+use crate::yaml_parser::types::*;
+use std::iter::Iterator;
+use std::convert::TryFrom;
 
 #[test]
 fn parsing_fails() -> Result<(), String> {
@@ -25,7 +28,7 @@ fn construct_parameter_from_char_array(name: &str) -> Result<InstFeedbackParamet
 fn types_match_or_error(expect: InstFeedbackParameterType, actual: Result<InstFeedbackParameterType, String>) -> Result<(), String> {
     match actual {
         Ok(actual_type) if (actual_type == expect) => Ok(()),
-        Ok(other_type) => Err(format!("Wrong type: {:?} instead of {:?}", other_type.toString(), expect.toString())),
+        Ok(other_type) => Err(format!("Wrong type: {:?} instead of {:?}", other_type.to_string(), expect.to_string())),
         Err(message) => Err(message)
     } 
 }
@@ -93,14 +96,166 @@ fn type_int64_gives_int64() -> Result<(), String> {
     let input_types_iter = ["int64", "Int64", "I64", "i64"].into_iter();
     construct_and_match_type_from_array(Box::new(input_types_iter), InstFeedbackParameterType::Int64)
 }
+
 #[test]
 fn type_string_gives_string() -> Result<(), String> {
     let input_types_iter = ["str", "string", "String", "Str"].into_iter();
     construct_and_match_type_from_array(Box::new(input_types_iter), InstFeedbackParameterType::String)
 }
+
 #[test]
 fn type_boolean_gives_boolean() -> Result<(), String> {
     let input_types_iter = ["bool", "Bool", "Boolean", "boolean"].into_iter();
     construct_and_match_type_from_array(Box::new(input_types_iter), InstFeedbackParameterType::Bool)
 }
 
+}
+
+mod display {
+  use crate::yaml_parser::*;
+
+  #[test]
+  fn uint8_displays_uint8() -> Result<(), String> {
+    assert_eq!("Uint8", InstFeedbackParameterType::Uint8.to_string());
+    Ok(())
+  }
+
+  #[test]
+  fn uint16_displays_uint16() -> Result<(), String> {
+    assert_eq!("Uint16", InstFeedbackParameterType::Uint16.to_string());
+    Ok(())
+  }
+
+  #[test]
+  fn uint32_displays_uint32() -> Result<(), String> {
+    assert_eq!("Uint32", InstFeedbackParameterType::Uint32.to_string());
+    Ok(())
+  }
+
+  #[test]
+  fn uint64_displays_uint64() -> Result<(), String> {
+    assert_eq!("Uint64", InstFeedbackParameterType::Uint64.to_string());
+    Ok(())
+  }
+  #[test]
+  fn int8_displays_int8() -> Result<(), String> {
+    assert_eq!("Int8", InstFeedbackParameterType::Int8.to_string());
+    Ok(())
+  }
+
+  #[test]
+  fn int16_displays_int16() -> Result<(), String> {
+    assert_eq!("Int16", InstFeedbackParameterType::Int16.to_string());
+    Ok(())
+  }
+
+  #[test]
+  fn int32_displays_int32() -> Result<(), String> {
+    assert_eq!("Int32", InstFeedbackParameterType::Int32.to_string());
+    Ok(())
+  }
+ 
+  #[test]
+  fn int64_displays_int64() -> Result<(), String> {
+    assert_eq!("Int64", InstFeedbackParameterType::Int64.to_string());
+    Ok(())
+  } 
+
+  #[test]
+  fn Bool_displays_bool() -> Result<(), String> {
+    assert_eq!("Bool", InstFeedbackParameterType::Bool.to_string());
+    Ok(())
+  }
+
+  #[test]
+  fn string_displays_string() -> Result<(), String> {
+    assert_eq!("String", InstFeedbackParameterType::String.to_string());
+    Ok(())
+  }
+}
+
+mod size {
+    use crate::yaml_parser::types::InstFeedbackParameterType;
+
+    #[test]
+    fn uint8_size_is_1_byte() {
+        assert_eq!(1, InstFeedbackParameterType::Uint8.size());
+    }
+
+    #[test]
+    fn int8_size_is_1_byte() {
+        assert_eq!(1, InstFeedbackParameterType::Int8.size());
+    }
+
+    #[test]
+    fn uint16_size_is_2_byte() {
+        assert_eq!(2, InstFeedbackParameterType::Uint16.size());
+    }
+
+    #[test]
+    fn int16_size_is_2_byte() {
+        assert_eq!(2, InstFeedbackParameterType::Int16.size());
+    }
+
+    #[test]
+    fn uint32_size_is_4_byte() {
+        assert_eq!(4, InstFeedbackParameterType::Uint32.size());
+    }
+
+    #[test]
+    fn int32_size_is_4_byte() {
+        assert_eq!(4, InstFeedbackParameterType::Int32.size());
+    }
+
+    #[test]
+    fn uint64_size_is_8_byte() {
+        assert_eq!(8, InstFeedbackParameterType::Uint64.size());
+    }
+
+    #[test]
+    fn int64_size_is_8_byte() {
+        assert_eq!(8, InstFeedbackParameterType::Int64.size());
+    }
+
+    #[test]
+    fn bool_size_is_1_byte() {
+        assert_eq!(1, InstFeedbackParameterType::Bool.size());
+    }
+
+    #[test]
+    fn string_size_is_unknown_bytes_long() {
+        assert_eq!(0, InstFeedbackParameterType::String.size());
+    }
+}
+
+mod decoder {
+    use crate::yaml_parser::*;
+    use crate::yaml_parser::types::InstFeedbackParameterType;
+    use serde_yaml;
+
+    #[test]
+    fn parse_normal_yaml_file() -> Result<(), String> {
+        let test_input = "
+codes:
+  0x00:
+    name: \"First message\"
+    instruction:
+      description: \"First instruction\"
+      parameters:
+        - name: \"a_string\"
+          data_type: string
+          description: A string to parse
+";
+    let parsed : CodesFile = serde_yaml::from_str(test_input).unwrap();
+
+        assert_eq!(1, parsed.codes.len() );
+        assert_eq!("First message", parsed.codes[&0].name);
+        assert_eq!("First instruction", parsed.codes[&0].instruction.as_ref().unwrap().description);
+
+        assert_eq!(1, parsed.codes[&0].instruction.as_ref().unwrap().parameters.len());
+        assert_eq!("a_string", parsed.codes[&0].instruction.as_ref().unwrap().parameters[0].name);
+        assert_eq!(InstFeedbackParameterType::String, parsed.codes[&0].instruction.as_ref().unwrap().parameters[0].data_type);
+        Ok(())
+    }
+    
+}
