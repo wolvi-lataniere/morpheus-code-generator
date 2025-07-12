@@ -6,13 +6,8 @@ use std::convert::TryFrom;
 #[test]
 fn parsing_fails() -> Result<(), String> {
     let from : String = "toto".into();
-    if let Ok(_result) = InstFeedbackParameterType::try_from(from)
-    {
-        Err("Should panic with \"toto\"".into())
-    }
-    else {
-        Ok(())
-    }
+    InstFeedbackParameterType::try_from(from).unwrap_err();
+    Ok(())
 }
 
 fn construct_from_string_and_match_type(stringType: &str, expect: InstFeedbackParameterType) -> Result<(), String> {
@@ -35,11 +30,8 @@ fn types_match_or_error(expect: InstFeedbackParameterType, actual: Result<InstFe
 
 #[test]
 fn type_uint8_doesnt_give_uint16() -> Result<(), String> {
-    if let Ok(()) = construct_from_string_and_match_type("uint8", InstFeedbackParameterType::Uint16) {
-        Err("Matching function must be wrong".into())
-    } else {
-        Ok(())
-    }
+    construct_from_string_and_match_type("uint8", InstFeedbackParameterType::Uint16).unwrap_err();
+    Ok(())
 }
 
 fn construct_and_match_type_from_array(input_iterator: Box<dyn Iterator<Item=&str>>, expect: InstFeedbackParameterType) ->
@@ -245,6 +237,12 @@ codes:
         - name: \"a_string\"
           data_type: string
           description: A string to parse
+        - name: a_bool
+          data_type: bool
+          description: A boolean data
+        - name: a_byte
+          data_type: byte
+          description: A byte data
 ";
     let parsed : CodesFile = serde_yaml::from_str(test_input).unwrap();
 
@@ -252,10 +250,35 @@ codes:
         assert_eq!("First message", parsed.codes[&0].name);
         assert_eq!("First instruction", parsed.codes[&0].instruction.as_ref().unwrap().description);
 
-        assert_eq!(1, parsed.codes[&0].instruction.as_ref().unwrap().parameters.len());
+        assert_eq!(3, parsed.codes[&0].instruction.as_ref().unwrap().parameters.len());
         assert_eq!("a_string", parsed.codes[&0].instruction.as_ref().unwrap().parameters[0].name);
         assert_eq!(InstFeedbackParameterType::String, parsed.codes[&0].instruction.as_ref().unwrap().parameters[0].data_type);
+
+        assert_eq!("a_bool", parsed.codes[&0].instruction.as_ref().unwrap().parameters[1].name);
+        assert_eq!(InstFeedbackParameterType::Bool, parsed.codes[&0].instruction.as_ref().unwrap().parameters[1].data_type);
+        assert_eq!("a_byte", parsed.codes[&0].instruction.as_ref().unwrap().parameters[2].name);
+        assert_eq!(InstFeedbackParameterType::Uint8, parsed.codes[&0].instruction.as_ref().unwrap().parameters[2].data_type);
         Ok(())
+    }
+
+    #[test]
+    fn parse_wrong_format_yaml_file() -> Result<(), String> {
+        let test_input = "
+codes:
+  0x00:
+    name: \"First message\"
+    instruction:
+      description: \"First instruction\"
+      parameters:
+        - name: \"a_string\"
+          data_type: strings
+          description: A string to parse
+";
+        let parsed : Result<CodesFile, serde_yaml::Error> = serde_yaml::from_str(test_input);
+
+        assert_eq!("codes.0x00.instruction.parameters[0].data_type: invalid value: string \"strings\", expected a string representing type [uXX, iXX, string or bool] at line 9 column 22", parsed.unwrap_err().to_string());
+
+       Ok(())
     }
     
 }

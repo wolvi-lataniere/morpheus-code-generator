@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor};
+use serde::de::{self, Deserializer, Visitor, Unexpected};
 use serde_derive::Deserialize;
 
 mod types;
@@ -13,7 +13,7 @@ impl<'de> Visitor<'de> for InstFeedbackParameterTypeVisitor {
     type Value = InstFeedbackParameterType;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("a string representing type [uXX, iXX or string]")
+        formatter.write_str("a string representing type [uXX, iXX, string or bool]")
     }
 
     fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
@@ -23,7 +23,7 @@ impl<'de> Visitor<'de> for InstFeedbackParameterTypeVisitor {
         match InstFeedbackParameterType::try_from(String::from(value))
         {
             Ok(v) => Ok(v),
-            Err(e) => Err(E::custom(e))
+            Err(e) => Err(E::invalid_value(Unexpected::Str(value), &self))
         }
     }
 }
@@ -37,7 +37,7 @@ impl<'de> de::Deserialize<'de> for InstFeedbackParameterType {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize,Debug)]
 pub struct InstFeedbackParameter
 {
     pub name: String,
@@ -45,20 +45,20 @@ pub struct InstFeedbackParameter
     pub data_type: InstFeedbackParameterType
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize,Debug)]
 pub struct InstFeedback {
     pub description: String,
     pub parameters: Vec<InstFeedbackParameter>
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize,Debug)]
 pub struct Codes {
     pub name: String,
     pub instruction: Option<InstFeedback>,
     pub feedback: Option<InstFeedback>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize,Debug)]
 pub struct CodesFile {
     pub codes: BTreeMap<u32, Codes>
 }
