@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
 use std::fmt;
+use std::iter::Iterator;
 
 use serde::de::{self, Deserializer, Visitor};
 use serde_derive::Deserialize;
@@ -16,6 +17,7 @@ use serde_derive::Deserialize;
 ///    panic!("Failed decoding");
 /// }
 /// ```
+#[derive(PartialEq,Eq,Clone,Copy)]
 pub enum InstFeedbackParameterType 
 {
     Uint64,
@@ -73,6 +75,21 @@ impl InstFeedbackParameterType {
             Self::Int16 => 2,
             Self::Int8 => 1,
             Self::Bool => 1
+        }
+    }
+
+    fn toString(&self) -> String{
+        match self {
+            Self::String => "String".into(),
+            Self::Uint64 => "Uint64".into(),
+            Self::Uint32 => "Uint32".into(),
+            Self::Uint16 => "Uint16".into(),
+            Self::Uint8  => "Uint8".into(),
+            Self::Int64  => "Int64".into(),
+            Self::Int32  => "Int32".into(),
+            Self::Int16  => "Int16".into(),
+            Self::Int8   => "Int8".into(),
+            Self::Bool   => "Bool".into()
         }
     }
 }
@@ -154,18 +171,4 @@ pub struct CodesFile {
 
 
 #[cfg(test)]
-mod test {
-    use crate::yaml_parser::*;
-
-    #[test]
-    fn parsing_fails() -> Result<(), String> {
-        let from : String = "toto".into();
-        if let Ok(_result) = InstFeedbackParameterType::try_from(from)
-        {
-            Err("Should panic with \"toto\"".into())
-        }
-        else {
-            Ok(())
-        }
-    }
-}
+mod test;

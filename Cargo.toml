@@ -1,11 +1,16 @@
 [package]
 name = "codes-parser"
 version = "0.1.0"
-edition = "2021"
-maintainer = "Aurelien VALADE <aurelien.valade@balena.io>"
+edition = "2024"
+authors = ["Aurelien VALADE <wolvi-lataniere>"]
+
+[target.aarch64-apple-darwin]
+profiler=true
+
 
 [dependencies]
 serde = "1.0"
 serde_derive = "1.0"
 serde_yaml = "0.8"
 getopts = "0.2"
+
