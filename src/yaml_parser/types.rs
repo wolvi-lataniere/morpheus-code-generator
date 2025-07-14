@@ -1,6 +1,6 @@
-use std::convert::TryFrom;
 use serde_derive::Deserialize;
-use std::fmt::{Debug,Formatter};
+use std::convert::TryFrom;
+use std::fmt::{Debug, Formatter};
 
 /// Parameter type internal reprensentation
 ///
@@ -9,13 +9,12 @@ use std::fmt::{Debug,Formatter};
 /// let from : String = "u8".into();
 /// if let Some(t) = ParameterType::try_from(from) {
 ///    
-/// } else { 
+/// } else {
 ///    panic!("Failed decoding");
 /// }
 /// ```
-#[derive(PartialEq,Eq,Clone,Copy)]
-pub enum ParameterType 
-{
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum ParameterType {
     Uint64,
     Uint32,
     Uint16,
@@ -25,7 +24,7 @@ pub enum ParameterType
     Int16,
     Int8,
     Bool,
-    String
+    String,
 }
 
 impl ParameterType {
@@ -40,8 +39,9 @@ impl ParameterType {
             Self::Int32 => "i32",
             Self::Int16 => "i16",
             Self::Int8 => "i8",
-            Self::Bool => "bool"
-        }.into()
+            Self::Bool => "bool",
+        }
+        .into()
     }
 
     pub fn to_cpp_type_string(&self) -> String {
@@ -55,8 +55,9 @@ impl ParameterType {
             Self::Int32 => "int32_t",
             Self::Int16 => "int16_t",
             Self::Int8 => "int8_t",
-            Self::Bool => "bool"
-        }.into()
+            Self::Bool => "bool",
+        }
+        .into()
     }
 
     pub fn size(&self) -> usize {
@@ -70,28 +71,29 @@ impl ParameterType {
             Self::Int32 => 4,
             Self::Int16 => 2,
             Self::Int8 => 1,
-            Self::Bool => 1
+            Self::Bool => 1,
         }
     }
 
-    pub fn to_string(&self) -> String{
+    pub fn to_string(&self) -> String {
         match self {
             Self::String => "String",
             Self::Uint64 => "Uint64",
             Self::Uint32 => "Uint32",
             Self::Uint16 => "Uint16",
-            Self::Uint8  => "Uint8",
-            Self::Int64  => "Int64",
-            Self::Int32  => "Int32",
-            Self::Int16  => "Int16",
-            Self::Int8   => "Int8",
-            Self::Bool   => "Bool"
-        }.into()
+            Self::Uint8 => "Uint8",
+            Self::Int64 => "Int64",
+            Self::Int32 => "Int32",
+            Self::Int16 => "Int16",
+            Self::Int8 => "Int8",
+            Self::Bool => "Bool",
+        }
+        .into()
     }
 }
 
 impl Debug for ParameterType {
-   fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), std::fmt::Error> { 
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         formatter.write_str(self.to_string().as_str())
     }
 }
@@ -111,9 +113,7 @@ impl TryFrom<String> for ParameterType {
             "i64" | "int64" => Ok(Self::Int64),
             "string" | "str" => Ok(Self::String),
             "bool" | "boolean" => Ok(Self::Bool),
-            _ => Err(format!("Unknown type {}", from))
+            _ => Err(format!("Unknown type {}", from)),
         }
     }
 }
-
-

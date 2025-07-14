@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use serde::de::{self, Deserializer, Visitor, Unexpected};
+use serde::de::{self, Deserializer, Unexpected, Visitor};
 use serde_derive::Deserialize;
 
 mod types;
@@ -20,10 +20,9 @@ impl<'de> Visitor<'de> for ParameterTypeVisitor {
     where
         E: de::Error,
     {
-        match ParameterType::try_from(String::from(value))
-        {
+        match ParameterType::try_from(String::from(value)) {
             Ok(v) => Ok(v),
-            Err(e) => Err(E::invalid_value(Unexpected::Str(value), &self))
+            Err(e) => Err(E::invalid_value(Unexpected::Str(value), &self)),
         }
     }
 }
@@ -37,32 +36,30 @@ impl<'de> de::Deserialize<'de> for ParameterType {
     }
 }
 
-#[derive(Deserialize,Debug)]
-pub struct InstFeedbackParameter
-{
+#[derive(Deserialize, Debug)]
+pub struct InstFeedbackParameter {
     pub name: String,
     pub description: String,
-    pub data_type: ParameterType
+    pub data_type: ParameterType,
 }
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub struct InstFeedback {
     pub description: String,
-    pub parameters: Vec<InstFeedbackParameter>
+    pub parameters: Vec<InstFeedbackParameter>,
 }
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Codes {
     pub name: String,
     pub instruction: Option<InstFeedback>,
     pub feedback: Option<InstFeedback>,
 }
 
-#[derive(Deserialize,Debug)]
+#[derive(Deserialize, Debug)]
 pub struct CodesFile {
-    pub codes: BTreeMap<u32, Codes>
+    pub codes: BTreeMap<u32, Codes>,
 }
-
 
 #[cfg(test)]
 mod test;
