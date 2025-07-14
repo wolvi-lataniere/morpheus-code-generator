@@ -46,7 +46,8 @@ fn parse_input_file_and_generate_outputs(input_file: File, opts: Arguments) -> R
     }
     if let Some(c) = &opts.c_header {
         println!("Generating C Headers: {}", &c);
-        cpp_template::build_cpp_header(&c, &input_file_content);
+        let mut builder = cpp_template::CppHeaderGenerator::new(&c).expect("Failed to generate Cpp Header");
+        builder.build_cpp_header(&input_file_content);
     }
     if let Some(c) = &opts.c_source {
         println!("Generating C Sources: {}", &c);
