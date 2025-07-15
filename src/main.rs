@@ -2,9 +2,11 @@ use getopts;
 use serde_yaml;
 use std::{fs::File, option, process::exit};
 
-mod cpp_template;
+mod file_generator;
 mod rust_template;
 mod yaml_parser;
+
+use file_generator::*;
 
 struct Arguments {
     pub input: String,
@@ -61,17 +63,17 @@ fn parse_input_file_and_generate_outputs(
 
     if let Some(rust) = opts.rust_source {
         println!("Generating RUST source: {}", &rust);
-        rust_template::build_rust_source(rust, &input_file_content).unwrap();
+        build_rust_source(rust, &input_file_content).unwrap();
     }
     if let Some(c) = &opts.c_header {
         println!("Generating C Headers: {}", &c);
         let mut builder =
-            cpp_template::CppHeaderGenerator::new(&c).expect("Failed to generate Cpp Header");
-        builder.build_cpp_header(&input_file_content);
+            CppHeaderGenerator::new(&c).expect("Failed to generate Cpp Header");
+        builder.build_file(&input_file_content);
     }
     if let Some(c) = &opts.c_source {
         println!("Generating C Sources: {}", &c);
-        cpp_template::build_cpp_source(&c, &opts.c_header, &input_file_content).unwrap();
+        build_cpp_source(&c, &opts.c_header, &input_file_content).unwrap();
     }
     Ok(())
 }

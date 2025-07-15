@@ -43,6 +43,18 @@ pub struct InstFeedbackParameter {
     pub data_type: ParameterType,
 }
 
+impl InstFeedbackParameter {
+    pub fn c_parameter_definition(&self) -> String {
+        format!("{} {}", self.data_type.to_cpp_type_string(), self.name)
+    }
+
+    pub fn c_parameter_definition_with_comment(&self) -> String {
+        format!("{} {};\t// {}", self.data_type.to_cpp_type_string(),
+        self.name,
+        self.description)
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct InstFeedback {
     pub description: String,
