@@ -326,3 +326,33 @@ codes:
         Ok(())
     }
 }
+
+
+mod parameter {
+    use crate::yaml_parser::{InstFeedbackParameter, ParameterType};
+
+    #[test]
+    fn generate_parameter_c_string() -> Result<(), String> {
+        let parameter = InstFeedbackParameter {
+            name: "parameter_name".into(),
+            description: "parameters description".into(),
+            data_type: ParameterType::Uint32
+        };
+
+        assert_eq!("uint32_t parameter_name", parameter.c_parameter_definition());
+        Ok(())    
+    }
+
+    #[test]
+    fn generate_parameter_c_string_with_comment() -> Result<(), String> {
+        let parameter = InstFeedbackParameter {
+            name: "parameter_name".into(),
+            description: "parameter description".into(),
+            data_type: ParameterType::Uint32
+        };
+
+        assert_eq!("uint32_t parameter_name;\t// parameter description", parameter.c_parameter_definition_with_comment());
+        Ok(())    
+    }
+}
+
