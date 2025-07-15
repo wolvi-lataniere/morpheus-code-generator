@@ -63,7 +63,7 @@ fn parse_input_file_and_generate_outputs(
 
     if let Some(rust) = opts.rust_source {
         println!("Generating RUST source: {}", &rust);
-        rust_template::build_rust_source(rust, &input_file_content).unwrap();
+        build_rust_source(rust, &input_file_content).unwrap();
     }
     if let Some(c) = &opts.c_header {
         println!("Generating C Headers: {}", &c);
