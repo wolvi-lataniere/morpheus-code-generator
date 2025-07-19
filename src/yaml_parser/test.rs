@@ -1,3 +1,27 @@
+use crate::yaml_parser::*;
+
+pub fn parsed_code_file() -> CodesFile {
+  let test_input = "
+codes:
+  0x00:
+    name: \"First message\"
+    instruction:
+      description: \"First instruction\"
+      parameters:
+        - name: \"a_string\"
+          data_type: string
+          description: A string to parse
+        - name: a_bool
+          data_type: bool
+          description: A boolean data
+        - name: a_byte
+          data_type: byte
+          description: A byte data
+";
+    serde_yaml::from_str(test_input).unwrap()
+}
+
+
 mod parsing {
     use crate::yaml_parser::types::*;
     use std::convert::TryFrom;
@@ -11,10 +35,10 @@ mod parsing {
     }
 
     fn construct_from_string_and_match_type(
-        stringType: &str,
+        string_type: &str,
         expect: ParameterType,
     ) -> Result<(), String> {
-        let parsed_type = construct_parameter_from_char_array(stringType);
+        let parsed_type = construct_parameter_from_char_array(string_type);
         types_match_or_error(expect, parsed_type)
     }
 
@@ -41,7 +65,7 @@ mod parsing {
     #[test]
     fn type_uint8_doesnt_give_uint16() -> Result<(), String> {
         construct_from_string_and_match_type("uint8", ParameterType::Uint16).unwrap_err();
-        Ok(())
+    Ok(())
     }
 
     fn construct_and_match_type_from_array(
@@ -167,7 +191,7 @@ mod display {
     }
 
     #[test]
-    fn Bool_displays_bool() -> Result<(), String> {
+    fn bool_displays_bool() -> Result<(), String> {
         assert_eq!("Bool", ParameterType::Bool.to_string());
         Ok(())
     }
@@ -240,25 +264,7 @@ mod decoder {
 
     #[test]
     fn parse_normal_yaml_file() -> Result<(), String> {
-        let test_input = "
-codes:
-  0x00:
-    name: \"First message\"
-    instruction:
-      description: \"First instruction\"
-      parameters:
-        - name: \"a_string\"
-          data_type: string
-          description: A string to parse
-        - name: a_bool
-          data_type: bool
-          description: A boolean data
-        - name: a_byte
-          data_type: byte
-          description: A byte data
-";
-        let parsed: CodesFile = serde_yaml::from_str(test_input).unwrap();
-
+        let parsed = test::parsed_code_file();
         assert_eq!(1, parsed.codes.len());
         assert_eq!("First message", parsed.codes[&0].name);
         assert_eq!(
@@ -356,3 +362,123 @@ mod parameter {
     }
 }
 
+mod codes {
+    use crate::yaml_parser::*;
+    
+    #[test]
+    fn get_instruction_returns_none_when_no_instruction() -> Result<(), String> {
+        let codes_under_test = Codes {
+                name: "Test code 1".into(),
+                instruction: None,
+                feedback: None
+        };
+
+        assert!(codes_under_test.get_instructions().is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_feedbacks_returns_none_when_no_feedback() -> Result<(), String> {
+        let codes_under_test = Codes {
+                name: "Test code 1".into(),
+                instruction: None,
+                feedback: None
+        };
+
+        assert!(codes_under_test.get_feedbacks().is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_instruction_returns_the_list_of_instructions() -> Result<(), String> {
+        let codes_under_test = Codes {
+                name: "Test code 1".into(),
+                instruction: Some(
+                InstFeedback { description: "Test feedback".into(), 
+                    parameters: [
+                        InstFeedbackParameter {
+                            name: "param1".into(),
+                            description: "first parameter".into(),
+                            data_type: ParameterType::Int16
+                        },
+                        InstFeedbackParameter {
+                            name: "param2".into(),
+                            description: "second parameter".into(),
+                            data_type: ParameterType::Bool
+                        }
+                    ].into() }
+            ),
+                feedback: None
+        };
+
+        let instructions = codes_under_test.get_instructions();
+        assert!(instructions.is_some());
+        let instructions = instructions.unwrap();
+        
+        assert_eq!(String::from("Test code 1"), instructions.0);
+        unsafe{
+            assert_eq!(codes_under_test.instruction.unwrap_unchecked(), instructions.1);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_feedbacks_returns_the_list_of_feedbackss() -> Result<(), String> {
+        let codes_under_test = Codes {
+                name: "Test code 1".into(),
+                feedback: Some(
+                InstFeedback { description: "Test feedback".into(), 
+                    parameters: [
+                        InstFeedbackParameter {
+                            name: "param1".into(),
+                            description: "first parameter".into(),
+                            data_type: ParameterType::Int16
+                        },
+                        InstFeedbackParameter {
+                            name: "param2".into(),
+                            description: "second parameter".into(),
+                            data_type: ParameterType::Bool
+                        }
+                    ].into() }
+            ),
+                instruction: None
+        };
+
+        let fbs = codes_under_test.get_feedbacks();
+        assert!(fbs.is_some());
+        let fbs = fbs.unwrap();
+        
+        assert_eq!(String::from("Test code 1"), fbs.0);
+        unsafe{
+            assert_eq!(codes_under_test.feedback.unwrap_unchecked(), fbs.1);
+        }
+
+        Ok(())
+    }
+
+}
+
+mod codes_file {
+    use std::array::from_fn;
+
+    use crate::yaml_parser::*;
+
+    #[test]
+    fn get_instructions_returns_empty_vector_when_no_instructions() {
+        let cf_under_test = CodesFile {
+            codes : BTreeMap::from([
+            (0x00, Codes {
+                    name: "Test".into(),
+                    instruction: None,
+                    feedback: None
+            })
+            ]),
+        };
+
+        let codes = cf_under_test.get_instructions();
+        assert!(codes.is_empty());
+    }
+}
