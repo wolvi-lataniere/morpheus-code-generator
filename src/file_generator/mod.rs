@@ -1,10 +1,12 @@
 use std::io;
 
-mod cpp_template;
+mod cpp_header;
+mod cpp_source;
 mod rust_template;
 
 use crate::yaml_parser;
-pub use cpp_template::{CppHeaderGenerator, build_cpp_source};
+pub use cpp_header::CppHeaderGenerator;
+pub use cpp_source::CppFileGenerator;
 pub use rust_template::build_rust_source;
 
 pub trait FileGenerator {
