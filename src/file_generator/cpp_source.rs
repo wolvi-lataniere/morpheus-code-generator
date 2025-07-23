@@ -1,4 +1,4 @@
-use crate::yaml_parser::{self, ParameterType};
+use crate::yaml_parser::{self, InstFeedback, ParameterType};
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
@@ -36,7 +36,7 @@ impl FileGenerator for CppFileGenerator {
     }
 
     fn write_footer(&mut self) -> Result<(), io::Error> {
-        todo!();
+        Ok(())
     }
 
     fn write_enumerations(
@@ -69,18 +69,16 @@ impl CppFileGenerator {
         })
     }
 
-    pub fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
-        self.write_header()?;
-
-        self.write_feedback_frames_builders(codes)?;
-
-        // Create a set of inline implementation for readability and debugging
-        codes.codes.iter().for_each(|(k, code)| {
-            if let Some(inst) = &code.instruction {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
+    fn write_instruction_frame_builder(
+        &mut self,
+        key: u32,
+        name: &str,
+        instruction: &InstFeedback,
+    ) -> Result<(), io::Error> {
+        self.file
+            .write_all(
+                format!(
+                    r#"
 int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* parameters)
 {{
     int position = 0;
@@ -91,51 +89,49 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
     if (position < *len) buffer[position++] = {};
     else return -1;
         "#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase(),
-                            k
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
+                    name.to_lowercase(),
+                    name.to_lowercase(),
+                    key
+                )
+                .as_bytes(),
+            )
+            .unwrap();
 
-                self.file
-                    .write_all(
-                        inst.parameters
-                            .iter()
-                            .map(|p| match p.data_type {
-                                ParameterType::Bool
-                                | ParameterType::Uint8
-                                | ParameterType::Int8 => {
-                                    format!(
-                                        r#"
+        self.file.write_all(
+            instruction
+                .parameters
+                .iter()
+                .map(|p| match p.data_type {
+                    ParameterType::Bool | ParameterType::Uint8 | ParameterType::Int8 => {
+                        format!(
+                            r#"
     if (position < *len) buffer[position++] = (uint8_t) parameters->{};
     else return -1;
     "#,
-                                        p.name
-                                    )
-                                }
-                                ParameterType::Int16
-                                | ParameterType::Uint16
-                                | ParameterType::Int32
-                                | ParameterType::Uint32
-                                | ParameterType::Int64
-                                | ParameterType::Uint64 => format!(
-                                    r#"
+                            p.name
+                        )
+                    }
+                    ParameterType::Int16
+                    | ParameterType::Uint16
+                    | ParameterType::Int32
+                    | ParameterType::Uint32
+                    | ParameterType::Int64
+                    | ParameterType::Uint64 => format!(
+                        r#"
     if ((position + {}) < *len) {{
         memcpy(&buffer[position], &parameters->{}, {});
         position += {};
     }}
     else return -1;
     "#,
-                                    p.data_type.size(),
-                                    p.name,
-                                    p.data_type.size(),
-                                    p.data_type.size()
-                                ),
+                        p.data_type.size(),
+                        p.name,
+                        p.data_type.size(),
+                        p.data_type.size()
+                    ),
 
-                                ParameterType::String => format!(
-                                    r#"
+                    ParameterType::String => format!(
+                        r#"
     if (position < *len) {{
         int max_len= (*len) - position;
         int string_len = strlen(parameters->{});
@@ -145,37 +141,35 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
     }}
     else return -1;
                     "#,
-                                    p.name, p.name
-                                ),
-                            })
-                            .collect::<Vec<String>>()
-                            .join("\n")
-                            .as_bytes(),
-                    )
-                    .unwrap();
+                        p.name, p.name
+                    ),
+                })
+                .collect::<Vec<String>>()
+                .join("\n")
+                .as_bytes(),
+        )?;
 
-                self.file
-                    .write_all(
-                        r#"
+        self.file.write_all(
+            r#"
     *len = position;
 
     return 0;
 }
         "#
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-        });
+            .as_bytes(),
+        )
+    }
 
-        //     // Add to frame decoding
-        // Create a set of inline implementation for readability and debugging
-        codes.codes.iter().for_each(|(k, code)| {
-            if let Some(fb) = &code.feedback {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
+    fn write_feedback_frame_parser(
+        &mut self,
+        key: u32,
+        name: &str,
+        fb: &InstFeedback,
+    ) -> Result<(), io::Error> {
+        self.file
+            .write_all(
+                format!(
+                    r#"
 int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parameters)
 {{
     int position = 0;
@@ -191,56 +185,56 @@ int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parame
     // Check the code
     if (buffer[position++] != {}) return -1;
         "#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase(),
-                            k
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
+                    name.to_lowercase(),
+                    name.to_lowercase(),
+                    name.to_lowercase(),
+                    key
+                )
+                .as_bytes(),
+            )
+            .unwrap();
 
-                self.file
-                    .write_all(
-                        fb.parameters
-                            .iter()
-                            .map(|p| match p.data_type {
-                                ParameterType::Bool => format!(
-                                    r#"
+        self.file
+            .write_all(
+                fb.parameters
+                    .iter()
+                    .map(|p| match p.data_type {
+                        ParameterType::Bool => format!(
+                            r#"
     if (position < len) parameters->{} = (buffer[position++] != 0) ;
     else return -1;
     "#,
-                                    p.name
-                                ),
-                                ParameterType::Uint8 | ParameterType::Int8 => format!(
-                                    r#"
+                            p.name
+                        ),
+                        ParameterType::Uint8 | ParameterType::Int8 => format!(
+                            r#"
     if (position < len) parameters->{} = ({}) buffer[position++] ;
     else return -1;
     "#,
-                                    p.name,
-                                    p.data_type.to_cpp_type_string()
-                                ),
-                                ParameterType::Int16
-                                | ParameterType::Uint16
-                                | ParameterType::Int32
-                                | ParameterType::Uint32
-                                | ParameterType::Int64
-                                | ParameterType::Uint64 => format!(
-                                    r#"
+                            p.name,
+                            p.data_type.to_cpp_type_string()
+                        ),
+                        ParameterType::Int16
+                        | ParameterType::Uint16
+                        | ParameterType::Int32
+                        | ParameterType::Uint32
+                        | ParameterType::Int64
+                        | ParameterType::Uint64 => format!(
+                            r#"
     if ((position + {}) < len) {{
         memcpy(&parameters->{}, &buffer[position], {});
         position += {};
     }}
     else return -1;
     "#,
-                                    p.data_type.size(),
-                                    p.name,
-                                    p.data_type.size(),
-                                    p.data_type.size()
-                                ),
+                            p.data_type.size(),
+                            p.name,
+                            p.data_type.size(),
+                            p.data_type.size()
+                        ),
 
-                                ParameterType::String => format!(
-                                    r#"
+                        ParameterType::String => format!(
+                            r#"
     if (position < len) {{
         int copy_len = (len) - position;
         // free buffer if not null
@@ -252,34 +246,38 @@ int parse_feedback_{}_frame(char* buffer, int len, struct s_fb_{}_params* parame
     }}
     else return -1;
                     "#,
-                                    p.name, p.name, p.name, p.name, p.name
-                                ),
-                            })
-                            .collect::<Vec<String>>()
-                            .join("\n")
-                            .as_bytes(),
-                    )
-                    .unwrap();
+                            p.name, p.name, p.name, p.name, p.name
+                        ),
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n")
+                    .as_bytes(),
+            )
+            .unwrap();
 
-                self.file
-                    .write_all(
-                        r#"
+        self.file
+            .write_all(
+                r#"
     return 0;
 }
         "#
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-        });
+                .as_bytes(),
+            )
+            .unwrap();
 
-        // Create a set of inline implementation for readability and debugging
-        codes.codes.iter().for_each(|(k, code)| {
-            if let Some(inst) = &code.instruction {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
+        Ok(())
+    }
+
+    fn write_instruction_frame_parser(
+        &mut self,
+        key: u32,
+        name: &str,
+        inst: &InstFeedback,
+    ) -> Result<(), io::Error> {
+        self.file
+            .write_all(
+                format!(
+                    r#"
 int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* parameters)
 {{
     int position = 0;
@@ -295,56 +293,56 @@ int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* p
     // Check the code
     if (buffer[position++] != {}) return -1;
         "#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase(),
-                            k
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
+                    name.to_lowercase(),
+                    name.to_lowercase(),
+                    name.to_lowercase(),
+                    key
+                )
+                .as_bytes(),
+            )
+            .unwrap();
 
-                self.file
-                    .write_all(
-                        inst.parameters
-                            .iter()
-                            .map(|p| match p.data_type {
-                                ParameterType::Bool => format!(
-                                    r#"
+        self.file
+            .write_all(
+                inst.parameters
+                    .iter()
+                    .map(|p| match p.data_type {
+                        ParameterType::Bool => format!(
+                            r#"
     if (position < len) parameters->{} = (buffer[position++] != 0);
     else return -1;
     "#,
-                                    p.name
-                                ),
-                                ParameterType::Uint8 | ParameterType::Int8 => format!(
-                                    r#"
+                            p.name
+                        ),
+                        ParameterType::Uint8 | ParameterType::Int8 => format!(
+                            r#"
     if (position < len) parameters->{} = ({}) buffer[position++] ;
     else return -1;
     "#,
-                                    p.name,
-                                    p.data_type.to_cpp_type_string()
-                                ),
-                                ParameterType::Int16
-                                | ParameterType::Uint16
-                                | ParameterType::Int32
-                                | ParameterType::Uint32
-                                | ParameterType::Int64
-                                | ParameterType::Uint64 => format!(
-                                    r#"
+                            p.name,
+                            p.data_type.to_cpp_type_string()
+                        ),
+                        ParameterType::Int16
+                        | ParameterType::Uint16
+                        | ParameterType::Int32
+                        | ParameterType::Uint32
+                        | ParameterType::Int64
+                        | ParameterType::Uint64 => format!(
+                            r#"
     if ((position + {}) < len) {{
         memcpy(&parameters->{}, &buffer[position], {});
         position += {};
     }}
     else return -1;
     "#,
-                                    p.data_type.size(),
-                                    p.name,
-                                    p.data_type.size(),
-                                    p.data_type.size()
-                                ),
+                            p.data_type.size(),
+                            p.name,
+                            p.data_type.size(),
+                            p.data_type.size()
+                        ),
 
-                                ParameterType::String => format!(
-                                    r#"
+                        ParameterType::String => format!(
+                            r#"
     if (position < len) {{
         int copy_len = (len) - position;
         // free buffer if not null
@@ -356,27 +354,31 @@ int parse_instruction_{}_frame(char* buffer, int len, struct s_inst_{}_params* p
     }}
     else return -1;
                     "#,
-                                    p.name, p.name, p.name, p.name, p.name
-                                ),
-                            })
-                            .collect::<Vec<String>>()
-                            .join("\n")
-                            .as_bytes(),
-                    )
-                    .unwrap();
+                            p.name, p.name, p.name, p.name, p.name
+                        ),
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n")
+                    .as_bytes(),
+            )
+            .unwrap();
 
-                self.file
-                    .write_all(
-                        r#"
+        self.file
+            .write_all(
+                r#"
     return 0;
 }
         "#
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-        });
+                .as_bytes(),
+            )
+            .unwrap();
+        Ok(())
+    }
 
+    fn write_feedback_frames_dispatch(
+        &mut self,
+        codes: &yaml_parser::CodesFile,
+    ) -> Result<(), io::Error> {
         // To the frame decoding hub
         self.file.write_all(
             r#"
@@ -391,31 +393,26 @@ int parse_feedback_frame(char* buffer, int len, Feedbacks* code, void **paramete
             .as_bytes(),
         )?;
 
-        codes.codes.iter().for_each(|(k, code)| {
-            if code.feedback.is_some() {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
-        case {}:
+        codes.get_feedbacks().iter().for_each(|(k, name, _code)| {
+            let lowercase_name = name.to_lowercase();
+            let uppercase_name = name.to_uppercase();
+            self.file
+                .write_all(
+                    format!(
+                        r#"
+        case {k}:
             {{
-                const size_t psize = sizeof(struct s_fb_{}_params);
+                const size_t psize = sizeof(struct s_fb_{lowercase_name}_params);
                 *parameters = k_malloc(psize);
                 memset(*parameters, 0, psize);
-                *code = FB_{};
-                return parse_feedback_{}_frame(buffer, len, (struct s_fb_{}_params*)*parameters);
+                *code = FB_{uppercase_name};
+                return parse_feedback_{lowercase_name}_frame(buffer, len, (struct s_fb_{lowercase_name}_params*)*parameters);
             }}
-        "#,
-                            k,
-                            code.name.to_lowercase(),
-                            code.name.to_uppercase(),
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase()
-                        )
-                        .as_bytes(),
+        "#
                     )
-                    .unwrap();
-            }
+                    .as_bytes(),
+                )
+                .unwrap();
         });
 
         self.file.write_all(
@@ -428,7 +425,13 @@ int parse_feedback_frame(char* buffer, int len, Feedbacks* code, void **paramete
     "#
             .as_bytes(),
         )?;
+        Ok(())
+    }
 
+    fn write_instruction_frames_dispatch(
+        &mut self,
+        codes: &yaml_parser::CodesFile,
+    ) -> Result<(), io::Error> {
         self.file.write_all(
             r#"
 int parse_instruction_frame(char* buffer, int len, Instructions* code, void **parameters)
@@ -442,24 +445,20 @@ int parse_instruction_frame(char* buffer, int len, Instructions* code, void **pa
             .as_bytes(),
         )?;
 
-        codes.codes.iter().for_each(|(k, code)| {
-        if code.instruction.is_some() {
+        codes.get_instructions().iter().for_each(|(k, name, _)| {
+            let lowercase_name = name.to_lowercase();
+            let uppercase_name = name.to_uppercase();
             self.file.write_all(format!(r#"
-        case {}:
+        case {k}:
             {{
-                const size_t psize = sizeof(struct s_inst_{}_params);
+                const size_t psize = sizeof(struct s_inst_{lowercase_name}_params);
                 *parameters = k_malloc(psize);
                 memset(*parameters, 0, psize);
-                *code = INST_{};
-                return parse_instruction_{}_frame(buffer, len, (struct s_inst_{}_params*)*parameters);
+                *code = INST_{uppercase_name};
+                return parse_instruction_{lowercase_name}_frame(buffer, len, (struct s_inst_{lowercase_name}_params*)*parameters);
             }}
-        "#, k, 
-            code.name.to_lowercase(),
-            code.name.to_uppercase(),
-            code.name.to_lowercase(),
-            code.name.to_lowercase()
+        "#,  
         ).as_bytes()).unwrap();
-        }
     });
 
         self.file.write_all(
@@ -471,7 +470,33 @@ int parse_instruction_frame(char* buffer, int len, Instructions* code, void **pa
 
     "#
             .as_bytes(),
-        )?;
+        )
+    }
+
+    pub fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
+        self.write_header()?;
+
+        self.write_feedback_frames_builders(codes)?;
+
+        // Create a set of inline implementation for readability and debugging
+        codes.get_instructions().iter().for_each(|(k, name, inst)| {
+            self.write_instruction_frame_builder(*k, name, inst)
+                .unwrap();
+        });
+
+        //     // Add to frame decoding
+        // Create a set of inline implementation for readability and debugging
+        codes.get_feedbacks().iter().for_each(|(k, name, fb)| {
+            self.write_feedback_frame_parser(*k, name, fb).unwrap();
+        });
+        // Create a set of inline implementation for readability and debugging
+        codes.get_instructions().iter().for_each(|(k, name, inst)| {
+            self.write_instruction_frame_parser(*k, name, inst).unwrap();
+        });
+
+        self.write_feedback_frames_dispatch(codes)?;
+        self.write_instruction_frames_dispatch(codes)?;
+
         Ok(())
     }
 

@@ -61,49 +61,58 @@ pub struct CodesFile {
     pub codes: BTreeMap<u32, Codes>,
 }
 
-
 impl InstFeedbackParameter {
     pub fn c_parameter_definition(&self) -> String {
         format!("{} {}", self.data_type.to_cpp_type_string(), self.name)
     }
 
     pub fn c_parameter_definition_with_comment(&self) -> String {
-        format!("{} {};\t// {}", self.data_type.to_cpp_type_string(),
-        self.name,
-        self.description)
+        format!(
+            "{} {};\t// {}",
+            self.data_type.to_cpp_type_string(),
+            self.name,
+            self.description
+        )
     }
 }
 
 impl Codes {
     pub fn get_instructions(&self) -> Option<(String, InstFeedback)> {
-        if let Some(inst) = &self.instruction {
-            Some((self.name.clone(), inst.clone()))
-        } else {
-            None
-        }
+        self.instruction
+            .as_ref()
+            .map(|inst| (self.name.clone(), inst.clone()))
     }
 
     pub fn get_feedbacks(&self) -> Option<(String, InstFeedback)> {
-        if let Some(fb) = &self.feedback {
-            Some((self.name.clone(), fb.clone()))
-        } else {
-            None
-        }
+        self.feedback
+            .as_ref()
+            .map(|fb| (self.name.clone(), fb.clone()))
     }
 }
 
 impl CodesFile {
     pub fn get_instructions(&self) -> Vec<(u32, String, InstFeedback)> {
-        self.codes.iter().filter_map(|(&code, instruction_code)| {
-           if let Some(instructions) = instruction_code.get_instructions() {
-                Some((code, instructions.0, instructions.1))
-            } else {
-                None 
-            }
-        }).collect()
+        self.codes
+            .iter()
+            .filter_map(|(&code, instruction_code)| {
+                instruction_code
+                    .get_instructions()
+                    .map(|instructions| (code, instructions.0, instructions.1))
+            })
+            .collect()
+    }
+
+    pub fn get_feedbacks(&self) -> Vec<(u32, String, InstFeedback)> {
+        self.codes
+            .iter()
+            .filter_map(|(&code, fb_code)| {
+                fb_code
+                    .get_feedbacks()
+                    .map(|instructions| (code, instructions.0, instructions.1))
+            })
+            .collect()
     }
 }
-
 
 #[cfg(test)]
 mod test;

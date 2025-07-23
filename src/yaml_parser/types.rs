@@ -28,7 +28,7 @@ pub enum ParameterType {
 }
 
 impl ParameterType {
-    pub fn to_rust_type_string(&self) -> String {
+    pub fn to_rust_type_string(self) -> String {
         match self {
             Self::String => "String",
             Self::Uint64 => "u64",
@@ -44,7 +44,7 @@ impl ParameterType {
         .into()
     }
 
-    pub fn to_cpp_type_string(&self) -> String {
+    pub fn to_cpp_type_string(self) -> String {
         match self {
             Self::String => "char *",
             Self::Uint64 => "uint64_t",
@@ -60,7 +60,7 @@ impl ParameterType {
         .into()
     }
 
-    pub fn size(&self) -> usize {
+    pub fn size(self) -> usize {
         match self {
             Self::String => 0,
             Self::Uint64 => 8,
@@ -75,7 +75,7 @@ impl ParameterType {
         }
     }
 
-    pub fn to_string(&self) -> String {
+    pub fn to_string(self) -> String {
         match self {
             Self::String => "String",
             Self::Uint64 => "Uint64",
