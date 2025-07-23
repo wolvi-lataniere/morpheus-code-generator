@@ -47,58 +47,76 @@ impl FileGenerator for CppFileGenerator {
     }
 }
 
-impl CppFileGenerator {
-    pub fn new(
-        source_file_name: &String,
-        header_file: &Option<String>,
-    ) -> Result<CppFileGenerator, io::Error> {
-        //// Create source code file
-        let file = File::create(source_file_name)?;
+enum FrameType {
+    Instruction,
+    Feedback,
+}
 
-        let headerfile_name = Path::new(&header_file.clone().unwrap_or(source_file_name.clone()))
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .replace(".cpp", ".h")
-            .replace(".c", ".h");
-
-        Ok(CppFileGenerator {
-            file: Box::new(file),
-            headerfile_name,
-        })
+impl FrameType {
+    pub fn short(&self) -> &'static str {
+        match self {
+            Self::Instruction => "inst",
+            Self::Feedback => "fb",
+        }
     }
 
-    fn write_instruction_frame_builder(
-        &mut self,
+    pub fn long(&self) -> &'static str {
+        match self {
+            Self::Instruction => "instruction",
+            Self::Feedback => "feedback",
+        }
+    }
+}
+
+struct WriteFrameBuilder<'a> {
+    builder_type: FrameType,
+    key: u32,
+    name: &'a str,
+    instruction: &'a InstFeedback,
+}
+
+impl<'a> WriteFrameBuilder<'a> {
+    pub fn new(
+        builder_type: FrameType,
         key: u32,
-        name: &str,
-        instruction: &InstFeedback,
-    ) -> Result<(), io::Error> {
-        self.file
-            .write_all(
-                format!(
-                    r#"
-int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* parameters)
+        name: &'a str,
+        instruction: &'a InstFeedback,
+    ) -> Self {
+        WriteFrameBuilder {
+            builder_type,
+            key,
+            name,
+            instruction,
+        }
+    }
+
+    pub fn build_frame(&self, file: &mut Box<dyn Write>) -> Result<(), io::Error> {
+        let lowercase_name = self.name.to_lowercase();
+        let uppercase_name = self.name.to_uppercase();
+        let key = self.key;
+        let type_long = self.builder_type.long();
+        let type_short = self.builder_type.short();
+
+        file.write_all(
+            format!(
+                r#"
+int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{type_short}_{lowercase_name}_params* parameters)
 {{
     int position = 0;
 
     if ((buffer == NULL) || (len == NULL) || (parameters == NULL))
       return -1;
     
-    if (position < *len) buffer[position++] = {};
+    if (position < *len) buffer[position++] = {key};
     else return -1;
-        "#,
-                    name.to_lowercase(),
-                    name.to_lowercase(),
-                    key
-                )
-                .as_bytes(),
+        "#
             )
-            .unwrap();
+            .as_bytes(),
+        )
+        .unwrap();
 
-        self.file.write_all(
-            instruction
+        file.write_all(
+            self.instruction
                 .parameters
                 .iter()
                 .map(|p| match p.data_type {
@@ -149,7 +167,7 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
                 .as_bytes(),
         )?;
 
-        self.file.write_all(
+        file.write_all(
             r#"
     *len = position;
 
@@ -158,6 +176,49 @@ int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* 
         "#
             .as_bytes(),
         )
+    }
+}
+
+impl CppFileGenerator {
+    pub fn new(
+        source_file_name: &String,
+        header_file: &Option<String>,
+    ) -> Result<CppFileGenerator, io::Error> {
+        //// Create source code file
+        let file = File::create(source_file_name)?;
+
+        let headerfile_name = Path::new(&header_file.clone().unwrap_or(source_file_name.clone()))
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .replace(".cpp", ".h")
+            .replace(".c", ".h");
+
+        Ok(CppFileGenerator {
+            file: Box::new(file),
+            headerfile_name,
+        })
+    }
+
+    fn write_instruction_frame_builder(
+        &mut self,
+        key: u32,
+        name: &str,
+        instruction: &InstFeedback,
+    ) -> Result<(), io::Error> {
+        WriteFrameBuilder::new(FrameType::Instruction, key, name, instruction)
+            .build_frame(&mut self.file)
+    }
+
+    fn write_feedback_frame_builder(
+        &mut self,
+        key: u32,
+        name: &str,
+        instruction: &InstFeedback,
+    ) -> Result<(), io::Error> {
+        WriteFrameBuilder::new(FrameType::Feedback, key, name, instruction)
+            .build_frame(&mut self.file)
     }
 
     fn write_feedback_frame_parser(
@@ -476,7 +537,9 @@ int parse_instruction_frame(char* buffer, int len, Instructions* code, void **pa
     pub fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
         self.write_header()?;
 
-        self.write_feedback_frames_builders(codes)?;
+        codes.get_feedbacks().iter().for_each(|(k, name, inst)| {
+            self.write_feedback_frame_builder(*k, name, inst).unwrap();
+        });
 
         // Create a set of inline implementation for readability and debugging
         codes.get_instructions().iter().for_each(|(k, name, inst)| {
@@ -497,107 +560,6 @@ int parse_instruction_frame(char* buffer, int len, Instructions* code, void **pa
         self.write_feedback_frames_dispatch(codes)?;
         self.write_instruction_frames_dispatch(codes)?;
 
-        Ok(())
-    }
-
-    fn write_feedback_frames_builders(
-        &mut self,
-        codes: &yaml_parser::CodesFile,
-    ) -> Result<(), io::Error> {
-        // Add to frame implementation
-        // Create a set of inline implementation for readability and debugging
-        codes.codes.iter().for_each(|(k, code)| {
-            if let Some(fb) = &code.feedback {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
-    int build_feedback_{}_frame(char* buffer, int *len, struct s_fb_{}_params* parameters)
-    {{
-        int position = 0;
-
-        if ((buffer == NULL) || (len == NULL) || (parameters == NULL))
-        return -1;
-        
-        if (position < *len) buffer[position++] = {};
-        else return -1;
-            "#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase(),
-                            k
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
-
-                self.file
-                    .write_all(
-                        fb.parameters
-                            .iter()
-                            .map(|p| match p.data_type {
-                                ParameterType::Bool
-                                | ParameterType::Uint8
-                                | ParameterType::Int8 => {
-                                    format!(
-                                        r#"
-        if (position < *len) buffer[position++] = (uint8_t) parameters->{};
-        else return -1;
-        "#,
-                                        p.name
-                                    )
-                                }
-                                ParameterType::Int16
-                                | ParameterType::Uint16
-                                | ParameterType::Int32
-                                | ParameterType::Uint32
-                                | ParameterType::Int64
-                                | ParameterType::Uint64 => format!(
-                                    r#"
-        if ((position + {}) < *len) {{
-            memcpy(&buffer[position], &parameters->{}, {});
-            position += {};
-        }}
-        else return -1;
-        "#,
-                                    p.data_type.size(),
-                                    p.name,
-                                    p.data_type.size(),
-                                    p.data_type.size()
-                                ),
-
-                                ParameterType::String => format!(
-                                    r#"
-        if (position < *len) {{
-            int max_len= (*len) - position;
-            int string_len = strlen(parameters->{});
-            if (string_len>max_len) string_len=max_len;
-            memcpy(&buffer[position], parameters->{}, string_len);
-            position += string_len;
-        }}
-        else return -1;
-                        "#,
-                                    p.name, p.name
-                                ),
-                            })
-                            .collect::<Vec<String>>()
-                            .join("\n")
-                            .as_bytes(),
-                    )
-                    .unwrap();
-
-                self.file
-                    .write_all(
-                        r#"
-        *len = position;
-
-        return 0;
-    }
-            "#
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-        });
         Ok(())
     }
 }
