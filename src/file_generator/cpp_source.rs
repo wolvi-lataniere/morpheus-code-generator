@@ -1,11 +1,10 @@
 use crate::yaml_parser::{self, InstFeedback, ParameterType};
-use std::fmt::format;
 use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 use std::vec::Vec;
 
-use crate::file_generator::FileGenerator;
+use crate::file_generator::{FileGenerator, FrameType};
 
 const FILE_HEADER: &str = r#"
 
@@ -22,58 +21,33 @@ pub struct CppFileGenerator {
 }
 
 impl FileGenerator for CppFileGenerator {
-    fn write_header(&mut self) -> Result<(), io::Error> {
-        self.file.write_all(FILE_HEADER.as_bytes())?;
-        self.file.write_all(
-            format!(
-                r#"#include "{}"
-#include <zephyr/zephyr.h>
-    "#,
-                self.headerfile_name
-            )
-            .as_bytes(),
-        )?;
+    fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
+        self.write_header()?;
+
+        codes.get_feedbacks().iter().for_each(|(k, name, inst)| {
+            self.write_feedback_frame_builder(*k, name, inst).unwrap();
+        });
+
+        // Create a set of inline implementation for readability and debugging
+        codes.get_instructions().iter().for_each(|(k, name, inst)| {
+            self.write_instruction_frame_builder(*k, name, inst)
+                .unwrap();
+        });
+
+        //     // Add to frame decoding
+        // Create a set of inline implementation for readability and debugging
+        codes.get_feedbacks().iter().for_each(|(k, name, fb)| {
+            self.write_feedback_frame_parser(*k, name, fb).unwrap();
+        });
+        // Create a set of inline implementation for readability and debugging
+        codes.get_instructions().iter().for_each(|(k, name, inst)| {
+            self.write_instruction_frame_parser(*k, name, inst).unwrap();
+        });
+
+        self.write_feedback_frames_dispatch(codes)?;
+        self.write_instruction_frames_dispatch(codes)?;
+
         Ok(())
-    }
-
-    fn write_footer(&mut self) -> Result<(), io::Error> {
-        Ok(())
-    }
-
-    fn write_enumerations(
-        &mut self,
-        _parameters: Vec<(&u32, &yaml_parser::Codes)>,
-    ) -> Result<(), io::Error> {
-        Ok(())
-    }
-}
-
-#[derive(Copy, Clone)]
-enum FrameType {
-    Instruction,
-    Feedback,
-}
-
-impl FrameType {
-    pub fn short(&self) -> &'static str {
-        match self {
-            Self::Instruction => "inst",
-            Self::Feedback => "fb",
-        }
-    }
-
-    pub fn long(&self) -> &'static str {
-        match self {
-            Self::Instruction => "instruction",
-            Self::Feedback => "feedback",
-        }
-    }
-
-    pub fn struct_name(&self) -> &'static str {
-        match self {
-            Self::Instruction => "Instructions",
-            Self::Feedback => "Feedbacks",
-        }
     }
 }
 
@@ -328,6 +302,20 @@ impl CppFileGenerator {
         })
     }
 
+    fn write_header(&mut self) -> Result<(), io::Error> {
+        self.file.write_all(FILE_HEADER.as_bytes())?;
+        self.file.write_all(
+            format!(
+                r#"#include "{}"
+#include <zephyr/zephyr.h>
+    "#,
+                self.headerfile_name
+            )
+            .as_bytes(),
+        )?;
+        Ok(())
+    }
+
     fn write_instruction_frame_builder(
         &mut self,
         _key: u32,
@@ -419,34 +407,5 @@ int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void
         codes: &yaml_parser::CodesFile,
     ) -> Result<(), io::Error> {
         self.write_frames_dispatch(FrameType::Instruction, codes.get_instructions())
-    }
-
-    pub fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
-        self.write_header()?;
-
-        codes.get_feedbacks().iter().for_each(|(k, name, inst)| {
-            self.write_feedback_frame_builder(*k, name, inst).unwrap();
-        });
-
-        // Create a set of inline implementation for readability and debugging
-        codes.get_instructions().iter().for_each(|(k, name, inst)| {
-            self.write_instruction_frame_builder(*k, name, inst)
-                .unwrap();
-        });
-
-        //     // Add to frame decoding
-        // Create a set of inline implementation for readability and debugging
-        codes.get_feedbacks().iter().for_each(|(k, name, fb)| {
-            self.write_feedback_frame_parser(*k, name, fb).unwrap();
-        });
-        // Create a set of inline implementation for readability and debugging
-        codes.get_instructions().iter().for_each(|(k, name, inst)| {
-            self.write_instruction_frame_parser(*k, name, inst).unwrap();
-        });
-
-        self.write_feedback_frames_dispatch(codes)?;
-        self.write_instruction_frames_dispatch(codes)?;
-
-        Ok(())
     }
 }

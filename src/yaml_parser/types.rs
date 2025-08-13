@@ -1,6 +1,5 @@
-use serde_derive::Deserialize;
 use std::convert::TryFrom;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 /// Parameter type internal reprensentation
 ///
@@ -74,9 +73,11 @@ impl ParameterType {
             Self::Bool => 1,
         }
     }
+}
 
-    pub fn to_string(self) -> String {
-        match self {
+impl fmt::Display for ParameterType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str(match self {
             Self::String => "String",
             Self::Uint64 => "Uint64",
             Self::Uint32 => "Uint32",
@@ -87,8 +88,7 @@ impl ParameterType {
             Self::Int16 => "Int16",
             Self::Int8 => "Int8",
             Self::Bool => "Bool",
-        }
-        .into()
+        })
     }
 }
 

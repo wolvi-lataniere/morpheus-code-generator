@@ -1,7 +1,7 @@
 use crate::yaml_parser::*;
 
 pub fn parsed_code_file() -> CodesFile {
-  let test_input = "
+    let test_input = "
 codes:
   0x00:
     name: \"First message\"
@@ -20,7 +20,6 @@ codes:
 ";
     serde_yaml::from_str(test_input).unwrap()
 }
-
 
 mod parsing {
     use crate::yaml_parser::types::*;
@@ -65,7 +64,7 @@ mod parsing {
     #[test]
     fn type_uint8_doesnt_give_uint16() -> Result<(), String> {
         construct_from_string_and_match_type("uint8", ParameterType::Uint16).unwrap_err();
-    Ok(())
+        Ok(())
     }
 
     fn construct_and_match_type_from_array(
@@ -260,7 +259,6 @@ mod size {
 mod decoder {
     use crate::yaml_parser::types::ParameterType;
     use crate::yaml_parser::*;
-    use serde_yaml;
 
     #[test]
     fn parse_normal_yaml_file() -> Result<(), String> {
@@ -333,7 +331,6 @@ codes:
     }
 }
 
-
 mod parameter {
     use crate::yaml_parser::{InstFeedbackParameter, ParameterType};
 
@@ -342,11 +339,14 @@ mod parameter {
         let parameter = InstFeedbackParameter {
             name: "parameter_name".into(),
             description: "parameters description".into(),
-            data_type: ParameterType::Uint32
+            data_type: ParameterType::Uint32,
         };
 
-        assert_eq!("uint32_t parameter_name", parameter.c_parameter_definition());
-        Ok(())    
+        assert_eq!(
+            "uint32_t parameter_name",
+            parameter.c_parameter_definition()
+        );
+        Ok(())
     }
 
     #[test]
@@ -354,23 +354,26 @@ mod parameter {
         let parameter = InstFeedbackParameter {
             name: "parameter_name".into(),
             description: "parameter description".into(),
-            data_type: ParameterType::Uint32
+            data_type: ParameterType::Uint32,
         };
 
-        assert_eq!("uint32_t parameter_name;\t// parameter description", parameter.c_parameter_definition_with_comment());
-        Ok(())    
+        assert_eq!(
+            "uint32_t parameter_name;\t// parameter description",
+            parameter.c_parameter_definition_with_comment()
+        );
+        Ok(())
     }
 }
 
 mod codes {
     use crate::yaml_parser::*;
-    
+
     #[test]
     fn get_instruction_returns_none_when_no_instruction() -> Result<(), String> {
         let codes_under_test = Codes {
-                name: "Test code 1".into(),
-                instruction: None,
-                feedback: None
+            name: "Test code 1".into(),
+            instruction: None,
+            feedback: None,
         };
 
         assert!(codes_under_test.get_instructions().is_none());
@@ -381,9 +384,9 @@ mod codes {
     #[test]
     fn get_feedbacks_returns_none_when_no_feedback() -> Result<(), String> {
         let codes_under_test = Codes {
-                name: "Test code 1".into(),
-                instruction: None,
-                feedback: None
+            name: "Test code 1".into(),
+            instruction: None,
+            feedback: None,
         };
 
         assert!(codes_under_test.get_feedbacks().is_none());
@@ -394,32 +397,36 @@ mod codes {
     #[test]
     fn get_instruction_returns_the_list_of_instructions() -> Result<(), String> {
         let codes_under_test = Codes {
-                name: "Test code 1".into(),
-                instruction: Some(
-                InstFeedback { description: "Test feedback".into(), 
-                    parameters: [
-                        InstFeedbackParameter {
-                            name: "param1".into(),
-                            description: "first parameter".into(),
-                            data_type: ParameterType::Int16
-                        },
-                        InstFeedbackParameter {
-                            name: "param2".into(),
-                            description: "second parameter".into(),
-                            data_type: ParameterType::Bool
-                        }
-                    ].into() }
-            ),
-                feedback: None
+            name: "Test code 1".into(),
+            instruction: Some(InstFeedback {
+                description: "Test feedback".into(),
+                parameters: [
+                    InstFeedbackParameter {
+                        name: "param1".into(),
+                        description: "first parameter".into(),
+                        data_type: ParameterType::Int16,
+                    },
+                    InstFeedbackParameter {
+                        name: "param2".into(),
+                        description: "second parameter".into(),
+                        data_type: ParameterType::Bool,
+                    },
+                ]
+                .into(),
+            }),
+            feedback: None,
         };
 
         let instructions = codes_under_test.get_instructions();
         assert!(instructions.is_some());
         let instructions = instructions.unwrap();
-        
+
         assert_eq!(String::from("Test code 1"), instructions.0);
-        unsafe{
-            assert_eq!(codes_under_test.instruction.unwrap_unchecked(), instructions.1);
+        unsafe {
+            assert_eq!(
+                codes_under_test.instruction.unwrap_unchecked(),
+                instructions.1
+            );
         }
 
         Ok(())
@@ -428,54 +435,53 @@ mod codes {
     #[test]
     fn get_feedbacks_returns_the_list_of_feedbackss() -> Result<(), String> {
         let codes_under_test = Codes {
-                name: "Test code 1".into(),
-                feedback: Some(
-                InstFeedback { description: "Test feedback".into(), 
-                    parameters: [
-                        InstFeedbackParameter {
-                            name: "param1".into(),
-                            description: "first parameter".into(),
-                            data_type: ParameterType::Int16
-                        },
-                        InstFeedbackParameter {
-                            name: "param2".into(),
-                            description: "second parameter".into(),
-                            data_type: ParameterType::Bool
-                        }
-                    ].into() }
-            ),
-                instruction: None
+            name: "Test code 1".into(),
+            feedback: Some(InstFeedback {
+                description: "Test feedback".into(),
+                parameters: [
+                    InstFeedbackParameter {
+                        name: "param1".into(),
+                        description: "first parameter".into(),
+                        data_type: ParameterType::Int16,
+                    },
+                    InstFeedbackParameter {
+                        name: "param2".into(),
+                        description: "second parameter".into(),
+                        data_type: ParameterType::Bool,
+                    },
+                ]
+                .into(),
+            }),
+            instruction: None,
         };
 
         let fbs = codes_under_test.get_feedbacks();
         assert!(fbs.is_some());
         let fbs = fbs.unwrap();
-        
+
         assert_eq!(String::from("Test code 1"), fbs.0);
-        unsafe{
+        unsafe {
             assert_eq!(codes_under_test.feedback.unwrap_unchecked(), fbs.1);
         }
 
         Ok(())
     }
-
 }
 
 mod codes_file {
-    use std::array::from_fn;
-
     use crate::yaml_parser::*;
 
     #[test]
     fn get_instructions_returns_empty_vector_when_no_instructions() {
         let cf_under_test = CodesFile {
-            codes : BTreeMap::from([
-            (0x00, Codes {
+            codes: BTreeMap::from([(
+                0x00,
+                Codes {
                     name: "Test".into(),
                     instruction: None,
-                    feedback: None
-            })
-            ]),
+                    feedback: None,
+                },
+            )]),
         };
 
         let codes = cf_under_test.get_instructions();

@@ -7,13 +7,37 @@ mod rust_template;
 use crate::yaml_parser;
 pub use cpp_header::CppHeaderGenerator;
 pub use cpp_source::CppFileGenerator;
-pub use rust_template::build_rust_source;
+pub use rust_template::RustFileGenerator;
 
 pub trait FileGenerator {
-    fn write_header(&mut self) -> Result<(), io::Error>;
-    fn write_enumerations(
-        &mut self,
-        parameters: Vec<(&u32, &yaml_parser::Codes)>,
-    ) -> Result<(), io::Error>;
-    fn write_footer(&mut self) -> Result<(), io::Error>;
+    fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error>;
+}
+
+#[derive(Copy, Clone)]
+enum FrameType {
+    Instruction,
+    Feedback,
+}
+
+impl FrameType {
+    pub fn short(&self) -> &'static str {
+        match self {
+            Self::Instruction => "inst",
+            Self::Feedback => "fb",
+        }
+    }
+
+    pub fn long(&self) -> &'static str {
+        match self {
+            Self::Instruction => "instruction",
+            Self::Feedback => "feedback",
+        }
+    }
+
+    pub fn struct_name(&self) -> &'static str {
+        match self {
+            Self::Instruction => "Instructions",
+            Self::Feedback => "Feedbacks",
+        }
+    }
 }
