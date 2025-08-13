@@ -18,6 +18,66 @@ pub struct CppHeaderGenerator {
 }
 
 impl FileGenerator for CppHeaderGenerator {
+    fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
+        self.write_header()?;
+
+        self.write_enumerations(codes.codes.iter().collect())?;
+
+        codes
+            .codes
+            .iter()
+            .for_each(|(_, c)| self.create_parameters_structure(&c.instruction, &c.name, "inst"));
+
+        codes
+            .codes
+            .iter()
+            .for_each(|(_, c)| self.create_parameters_structure(&c.feedback, &c.name, "fb"));
+
+        codes.codes.iter().for_each(|(_k, code)| {
+            if code.feedback.is_some() {
+                self.file
+                    .write_all(
+                        format!(
+                            r#"
+int build_feedback_{}_frame(char* buffer, int *len, struct s_fb_{}_params* parameters);
+"#,
+                            code.name.to_lowercase(),
+                            code.name.to_lowercase()
+                        )
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            }
+            if code.instruction.is_some() {
+                self.file
+                    .write_all(
+                        format!(
+                            r#"
+int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* parameters);
+"#,
+                            code.name.to_lowercase(),
+                            code.name.to_lowercase()
+                        )
+                        .as_bytes(),
+                    )
+                    .unwrap();
+            }
+        });
+
+        self.write_footer()?;
+        self.file.flush()?;
+
+        Ok(())
+    }
+}
+
+impl CppHeaderGenerator {
+    pub fn new(header_file_name: &String) -> Result<Self, io::Error> {
+        Ok(CppHeaderGenerator {
+            file: Box::new(File::create(header_file_name)?),
+        })
+    }
+
     fn write_header(&mut self) -> Result<(), io::Error> {
         self.file.write_all(FILE_HEADER.as_bytes())?;
         Ok(())
@@ -54,14 +114,6 @@ extern int parse_instruction_frame(char* buffer, int len, Instructions* code, vo
                 .as_bytes(),
         )?;
         Ok(())
-    }
-}
-
-impl CppHeaderGenerator {
-    pub fn new(header_file_name: &String) -> Result<Self, io::Error> {
-        Ok(CppHeaderGenerator {
-            file: Box::new(File::create(header_file_name)?),
-        })
     }
 
     fn get_formatted_enumeration_codes<F>(
@@ -144,57 +196,5 @@ struct s_{}_{}_params {{
                 )
                 .unwrap();
         }
-    }
-
-    pub fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
-        self.write_header()?;
-
-        self.write_enumerations(codes.codes.iter().collect())?;
-
-        codes
-            .codes
-            .iter()
-            .for_each(|(_, c)| self.create_parameters_structure(&c.instruction, &c.name, "inst"));
-
-        codes
-            .codes
-            .iter()
-            .for_each(|(_, c)| self.create_parameters_structure(&c.feedback, &c.name, "fb"));
-
-        codes.codes.iter().for_each(|(_k, code)| {
-            if code.feedback.is_some() {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
-int build_feedback_{}_frame(char* buffer, int *len, struct s_fb_{}_params* parameters);
-"#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase()
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-            if code.instruction.is_some() {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
-int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* parameters);
-"#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase()
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-        });
-
-        self.write_footer()?;
-        self.file.flush()?;
-
-        Ok(())
     }
 }

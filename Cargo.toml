@@ -7,6 +7,8 @@ authors = ["Aurelien VALADE <wolvi-lataniere>"]
 [target.aarch64-apple-darwin]
 profiler=true
 
+[dev-dependencies]
+cc="1.2.32"
 
 [dependencies]
 serde = "1.0"
