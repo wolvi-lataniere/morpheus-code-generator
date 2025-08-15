@@ -1,0 +1,62 @@
+# This document describes available codes for Morpheus project
+# It is automatically parsed to generate code structure and
+# documentation for the project.
+codes:
+  0x00:
+    name: GetVersion
+    instruction:
+      description: |
+        Requests the protocol version
+      parameters: []
+    feedback:
+      description: |
+        Returns the protocol version in the form MAJOR.MINOR.PATCH
+      parameters:
+        - name: major
+          data_type: u8
+          description: Major version number
+        - name: minor
+          data_type: u8
+          description: Minor version number
+        - name: patch
+          data_type: u8
+          description: Patch version number
+  0x03:
+    name: SleepPin
+    instruction:
+      description: |
+        Sleeps while WAKE-UP GPIO pin is up.
+      parameters:
+        - name: pre_sleep_time
+          description: Pre sleep-delay in seconds
+          data_type: u16
+        - name: wake_pin_active_state
+          description: Wake pin state to wake up the Pi (1 for wake when pin is 3v3)
+          data_type: bool
+    feedback:
+      description: |
+        Command execution status.
+      parameters:
+        - name: success
+          description: Success status
+          data_type: bool
+  0x04:
+    name: SleepTime
+    instruction:
+      description: |
+        Sleeps for a given amount of time (in seconds).
+      parameters:
+        - name: pre_sleep_time
+          description: Pre sleep-delay in seconds
+          data_type: u16
+        - name: duration
+          description: Sleep duration (in seconds)
+          data_type: u32
+    feedback:
+      description: |
+        Acknowledges the sleep command
+      parameters:
+        - name: feedback
+          description: acknowledgement value (1 if OK, 0 otherwise)
+          data_type: u8
+  

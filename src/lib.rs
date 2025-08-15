@@ -56,20 +56,16 @@ pub fn parse_input_file_and_generate_outputs(
     opts: Arguments,
 ) -> Result<(), Box<dyn error::Error>> {
     let input_file_content: yaml_parser::CodesFile = serde_yaml::from_reader(input_file)?;
-    println!("Parsing OK");
 
     if let Some(rust) = opts.rust_source {
-        println!("Generating RUST source: {}", &rust);
         let mut builder = RustFileGenerator::new(rust)?;
         builder.build_file(&input_file_content)?;
     }
     if let Some(c) = &opts.c_header {
-        println!("Generating C Headers: {}", &c);
         let mut builder = CppHeaderGenerator::new(c)?;
         builder.build_file(&input_file_content)?;
     }
     if let Some(c) = &opts.c_source {
-        println!("Generating C Sources: {}", &c);
         let mut builder = CppFileGenerator::new(c, &opts.c_header)?;
         builder.build_file(&input_file_content)?;
     }
