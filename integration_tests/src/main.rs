@@ -2,6 +2,9 @@
 use std::os::raw::c_void;
 #[cfg(test)]
 use std::ptr;
+
+mod test_rust;
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[test]
@@ -62,15 +65,21 @@ fn test_sleeping_frame_too_small_buffer() {
 fn test_parse_feedback_sleeping_frame() {
     let mut buffer: [i8; 2] = [0x03, 0x01];
     let mut code: u32 = 0;
-    let len: i32 = 2;
     let parameters: s_fb_sleeppin_params;
     let mut ptr = ptr::null_mut::<c_void>();
 
-    let result = unsafe { parse_feedback_frame(buffer.as_mut_ptr(), len, &mut code, &mut ptr) };
+    let result = unsafe {
+        parse_feedback_frame(
+            buffer.as_mut_ptr(),
+            buffer.len() as i32,
+            &mut code,
+            &mut ptr,
+        )
+    };
 
     assert_eq!(0, result, "Should succeed to parse frame");
     assert_eq!(
-        __instructions_enum_INST_SLEEPPIN, code,
+        __feedbacks_enum_FB_SLEEPPIN, code,
         "Should have parsed a sleeping frame"
     );
 
@@ -87,6 +96,36 @@ fn test_parse_feedback_sleeping_frame() {
     unsafe {
         free(ptr);
     }
+}
+
+#[test]
+fn test_parse_invalid_sleeping_frame_length() {
+    let mut buf: [i8; 1] = [0x03];
+    let mut code: u32 = 0;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let result =
+        unsafe { parse_feedback_frame(buf.as_mut_ptr(), buf.len() as i32, &mut code, &mut ptr) };
+
+    assert_ne!(
+        0, result,
+        "Frame processing should fail due to wrong frame length"
+    );
+}
+
+#[test]
+fn test_parse_invalid_frame_code() {
+    let mut buf = [0x50i8, 0x00, 0x00, 0x00, 0x00];
+    let mut code = 0u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let result =
+        unsafe { parse_feedback_frame(buf.as_mut_ptr(), buf.len() as i32, &mut code, &mut ptr) };
+
+    assert_ne!(
+        0, result,
+        "Frame decoding should fail for unknown frame code"
+    );
 }
 
 fn main() {}

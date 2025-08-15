@@ -155,6 +155,8 @@ dependencies = [
  "bindgen 0.72.0",
  "cc",
  "codes-parser",
+ "serde",
+ "serde_derive",
 ]
 
 [[package]]
