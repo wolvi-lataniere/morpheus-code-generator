@@ -115,7 +115,7 @@ int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{t
                     | ParameterType::Int64
                     | ParameterType::Uint64 => format!(
                         r#"
-    if ((position + {}) < *len) {{
+    if ((position + {}) <= *len) {{
         memcpy(&buffer[position], &parameters->{}, {});
         position += {};
     }}
@@ -212,7 +212,7 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
                     | ParameterType::Int64
                     | ParameterType::Uint64 => format!(
                         r#"
-    if ((position + {}) < len) {{
+    if ((position + {}) <= len) {{
         memcpy(&parameters->{}, &buffer[position], {});
         position += {};
     }}

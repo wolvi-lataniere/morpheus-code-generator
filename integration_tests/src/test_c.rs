@@ -12,6 +12,22 @@ impl PartialEq for s_inst_sleeppin_params {
     }
 }
 
+impl PartialEq for s_fb_sleeptime_params {
+    fn eq(&self, other: &Self) -> bool {
+        self.feedback == other.feedback
+    }
+}
+
+impl PartialEq for s_inst_sleeptime_params {
+    fn eq(&self, other: &Self) -> bool {
+        println!(
+            "{},{} == {},{}",
+            self.duration, self.pre_sleep_time, other.duration, other.pre_sleep_time
+        );
+        self.duration == other.duration && self.pre_sleep_time == other.pre_sleep_time
+    }
+}
+
 #[cfg(test)]
 fn match_buffers(expected: &[i8], buffer: &[i8], len: usize) {
     assert_eq!(
@@ -26,9 +42,9 @@ fn match_buffers(expected: &[i8], buffer: &[i8], len: usize) {
 }
 
 #[test]
-fn sleeping_sucessful_frame_file() {
-    let mut buffer: [i8; 256] = [0; 256];
-    let mut len: i32 = 256;
+fn sleeping_sucessfull_frame() {
+    let mut buffer = [0i8; 2];
+    let mut len = buffer.len() as i32;
     let mut parameters = s_fb_sleeppin_params { success: true };
     let result =
         unsafe { build_feedback_sleeppin_frame(buffer.as_mut_ptr(), &mut len, &mut parameters) };
@@ -40,9 +56,9 @@ fn sleeping_sucessful_frame_file() {
 }
 
 #[test]
-fn sleeping_failing_frame_file() {
-    let mut buffer: [i8; 256] = [0; 256];
-    let mut len: i32 = 256;
+fn sleeping_failing_frame() {
+    let mut buffer = [0i8; 2];
+    let mut len = buffer.len() as i32;
     let mut parameters = s_fb_sleeppin_params { success: false };
     let result =
         unsafe { build_feedback_sleeppin_frame(buffer.as_mut_ptr(), &mut len, &mut parameters) };
@@ -184,7 +200,7 @@ fn parse_instruction_sleeping_frame() {
 }
 
 #[test]
-fn sleepin_instruction_generation() {
+fn build_sleepin_instruction() {
     let mut buf = [0i8; 255];
     let mut len = buf.len() as i32;
     let mut sent_frame = s_inst_sleeppin_params {
@@ -200,4 +216,103 @@ fn sleepin_instruction_generation() {
     assert_eq!(0, result, "Should succeed");
 
     match_buffers(&expected_buffer, &buf, len as usize);
+}
+
+#[test]
+fn build_sleeptime_feedback() {
+    let mut frame_to_send = s_fb_sleeptime_params { feedback: 0x55 };
+
+    let mut buf = [0i8; 255];
+    let mut len = buf.len() as i32;
+
+    let expected_frame = [4i8, 0x55];
+
+    let result =
+        unsafe { build_feedback_sleeptime_frame(buf.as_mut_ptr(), &mut len, &mut frame_to_send) };
+
+    assert_eq!(0, result, "Frame generation should have succeed");
+    match_buffers(&expected_frame, &buf, len as usize);
+}
+
+#[test]
+fn parse_feedback_sleeptime() {
+    let mut frame_to_parse = [4i8, 0x7e];
+    let mut ptr = ptr::null_mut::<c_void>();
+    let mut code = 0u32;
+
+    let result = unsafe {
+        parse_feedback_frame(
+            frame_to_parse.as_mut_ptr(),
+            frame_to_parse.len() as i32,
+            &mut code,
+            &mut ptr,
+        )
+    };
+
+    assert_eq!(0, result, "Frame parsing should have succeed");
+    assert_ne!(ptr::null_mut(), ptr, "Should have allocated some memory");
+    assert_eq!(
+        __feedbacks_enum_FB_SLEEPTIME, code,
+        "Code should be SleepTime feedback"
+    );
+
+    let decoded_frame = unsafe { *(ptr as *mut s_fb_sleeptime_params) };
+    let expected_frame = s_fb_sleeptime_params { feedback: 0x7e };
+
+    assert_eq!(
+        expected_frame, decoded_frame,
+        "Decoded frame should match expected one"
+    );
+
+    unsafe { free(ptr) };
+}
+
+#[test]
+fn build_instruction_sleeptime() {
+    let mut frame_to_send = s_inst_sleeptime_params {
+        pre_sleep_time: 10,
+        duration: 1000,
+    };
+    let mut buf = [0i8; 7];
+    let mut len = buf.len() as i32;
+
+    let expected_buffer = [0x04i8, 10, 0, -0x18, 0x03, 0, 0];
+
+    let result = unsafe {
+        build_instruction_sleeptime_frame(buf.as_mut_ptr(), &mut len, &mut frame_to_send)
+    };
+
+    assert_eq!(0, result, "Frame generation should have succeed");
+
+    match_buffers(&expected_buffer, &buf, len as usize);
+}
+
+#[test]
+fn parse_instruction_sleeptime() {
+    let expected_decoded = s_inst_sleeptime_params {
+        pre_sleep_time: 10,
+        duration: 1000,
+    };
+    let mut buf = [0x04i8, 10, 0, -0x18, 0x03, 0, 0];
+    let mut code = 0u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let result =
+        unsafe { parse_instruction_frame(buf.as_mut_ptr(), buf.len() as i32, &mut code, &mut ptr) };
+
+    assert_eq!(0, result, "Frame parsing should have succeed");
+    assert_eq!(
+        __instructions_enum_INST_SLEEPTIME, code,
+        "Code should match the expected one"
+    );
+
+    assert_ne!(ptr::null_mut(), ptr, "Should have allocated some memory ");
+
+    let decoded_struct = unsafe { *(ptr as *mut s_inst_sleeptime_params) };
+    assert_eq!(
+        expected_decoded, decoded_struct,
+        "Decoded frame should match expectation"
+    );
+
+    unsafe { free(ptr) };
 }
