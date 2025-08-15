@@ -33,10 +33,11 @@ fn main() {
     let input_file = File::open("test.yml").unwrap();
     let output_c_source: String = out_path.join("test_output.cpp").to_str().unwrap().into();
     let output_c_header: String = out_path.join("test_output.h").to_str().unwrap().into();
+    let output_rs: String = out_path.join("test_output.rs").to_str().unwrap().into();
     let opts = Arguments {
         c_header: Some(output_c_header.clone()),
         c_source: Some(output_c_source.clone()),
-        rust_source: None,
+        rust_source: Some(output_rs),
         input: "test.yml".into(),
     };
     codes_parser::parse_input_file_and_generate_outputs(input_file, opts).unwrap();
