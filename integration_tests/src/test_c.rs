@@ -5,48 +5,56 @@ use std::ptr;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
+impl PartialEq for s_inst_sleeppin_params {
+    fn eq(&self, other: &Self) -> bool {
+        self.wake_pin_active_state == other.wake_pin_active_state
+            && self.pre_sleep_time == other.pre_sleep_time
+    }
+}
+
+#[cfg(test)]
+fn match_buffers(expected: &[i8], buffer: &[i8], len: usize) {
+    assert_eq!(
+        len,
+        expected.len(),
+        "Buffer length should match expectation"
+    );
+    assert!(
+        expected.eq(&buffer[..len]),
+        "Buffer content should match expectation"
+    );
+}
+
 #[test]
-fn test_sleeping_sucessful_frame_file() {
+fn sleeping_sucessful_frame_file() {
     let mut buffer: [i8; 256] = [0; 256];
     let mut len: i32 = 256;
     let mut parameters = s_fb_sleeppin_params { success: true };
     let result =
         unsafe { build_feedback_sleeppin_frame(buffer.as_mut_ptr(), &mut len, &mut parameters) };
 
+    let expected_frame = [0x03i8, 1];
+
     assert_eq!(0, result, "The generation should succeed");
-    assert_eq!(
-        0x03, buffer[0],
-        "Should have generated a frame code of 0x03"
-    );
-    assert_eq!(
-        0x01, buffer[1],
-        "Should have a success flag value of \"true\""
-    );
-    assert_eq!(2, len, "Should have a frame length of 2");
+    match_buffers(&expected_frame, &buffer, len as usize);
 }
 
 #[test]
-fn test_sleeping_failing_frame_file() {
+fn sleeping_failing_frame_file() {
     let mut buffer: [i8; 256] = [0; 256];
     let mut len: i32 = 256;
     let mut parameters = s_fb_sleeppin_params { success: false };
     let result =
         unsafe { build_feedback_sleeppin_frame(buffer.as_mut_ptr(), &mut len, &mut parameters) };
 
+    let expected_frame = [0x03i8, 0];
+
     assert_eq!(0, result, "The generation should succeed");
-    assert_eq!(
-        0x03, buffer[0],
-        "Should have generated a frame code of 0x03"
-    );
-    assert_eq!(
-        0x00, buffer[1],
-        "Should have a success flag value of \"true\""
-    );
-    assert_eq!(2, len, "Should have a frame length of 2");
+    match_buffers(&expected_frame, &buffer, len as usize);
 }
 
 #[test]
-fn test_sleeping_frame_too_small_buffer() {
+fn sleeping_frame_too_small_buffer() {
     let mut buffer: [i8; 1] = [0; 1];
     let mut len: i32 = 1;
     let mut parameters = s_fb_sleeppin_params { success: true };
@@ -60,7 +68,7 @@ fn test_sleeping_frame_too_small_buffer() {
 }
 
 #[test]
-fn test_parse_feedback_sleeping_frame() {
+fn parse_feedback_sleeping_frame() {
     let mut buffer: [i8; 2] = [0x03, 0x01];
     let mut code: u32 = 0;
     let parameters: s_fb_sleeppin_params;
@@ -97,7 +105,7 @@ fn test_parse_feedback_sleeping_frame() {
 }
 
 #[test]
-fn test_parse_invalid_sleeping_frame_length() {
+fn parse_invalid_sleeping_frame_length() {
     let mut buf: [i8; 1] = [0x03];
     let mut code: u32 = 0;
     let mut ptr = ptr::null_mut::<c_void>();
@@ -112,7 +120,7 @@ fn test_parse_invalid_sleeping_frame_length() {
 }
 
 #[test]
-fn test_parse_invalid_frame_code() {
+fn parse_invalid_feedback_frame_code() {
     let mut buf = [0x50i8, 0x00, 0x00, 0x00, 0x00];
     let mut code = 0u32;
     let mut ptr = ptr::null_mut::<c_void>();
@@ -124,4 +132,72 @@ fn test_parse_invalid_frame_code() {
         0, result,
         "Frame decoding should fail for unknown frame code"
     );
+}
+
+#[test]
+fn parse_invalid_instruction_frame_code() {
+    let mut buf = [0x50i8, 0x00, 0x00, 0x00, 0x00];
+    let mut code = 0u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let result =
+        unsafe { parse_instruction_frame(buf.as_mut_ptr(), buf.len() as i32, &mut code, &mut ptr) };
+
+    assert_ne!(
+        0, result,
+        "Frame decoding should fail for unknown frame code"
+    );
+}
+
+#[test]
+fn parse_instruction_sleeping_frame() {
+    let mut buf = [0x03i8, 120, 0, 1];
+    let mut code = 0u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+    let expected_struct = s_inst_sleeppin_params {
+        pre_sleep_time: 120,
+        wake_pin_active_state: true,
+    };
+
+    let result =
+        unsafe { parse_instruction_frame(buf.as_mut_ptr(), buf.len() as i32, &mut code, &mut ptr) };
+
+    assert_eq!(0, result, "Frame parsing should succeed");
+    assert_ne!(
+        ptr::null_mut::<c_void>(),
+        ptr,
+        "Should have allocated some pointer"
+    );
+    assert_eq!(
+        __instructions_enum_INST_SLEEPPIN, code,
+        "Instruction code should match Sleepin instruction"
+    );
+    let decoded_struct: s_inst_sleeppin_params = unsafe { *(ptr as *mut s_inst_sleeppin_params) };
+
+    assert_eq!(
+        expected_struct, decoded_struct,
+        "Decoded structure should match the expected values"
+    );
+    unsafe {
+        free(ptr);
+    }
+}
+
+#[test]
+fn sleepin_instruction_generation() {
+    let mut buf = [0i8; 255];
+    let mut len = buf.len() as i32;
+    let mut sent_frame = s_inst_sleeppin_params {
+        pre_sleep_time: 84,
+        wake_pin_active_state: false,
+    };
+
+    let expected_buffer = [3i8, 84, 0, 0];
+
+    let result =
+        unsafe { build_instruction_sleeppin_frame(buf.as_mut_ptr(), &mut len, &mut sent_frame) };
+
+    assert_eq!(0, result, "Should succeed");
+
+    match_buffers(&expected_buffer, &buf, len as usize);
 }
