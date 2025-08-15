@@ -28,6 +28,12 @@ impl PartialEq for s_inst_sleeptime_params {
     }
 }
 
+impl PartialEq for s_fb_getversion_params {
+    fn eq(&self, other: &Self) -> bool {
+        self.major == other.major && self.minor == other.minor && self.patch == other.patch
+    }
+}
+
 #[cfg(test)]
 fn match_buffers(expected: &[i8], buffer: &[i8], len: usize) {
     assert_eq!(
@@ -314,5 +320,89 @@ fn parse_instruction_sleeptime() {
         "Decoded frame should match expectation"
     );
 
+    unsafe { free(ptr) };
+}
+
+#[test]
+fn build_instruction_getversion() {
+    let mut frame_to_send = s_inst_getversion_params { _address: 0u8 };
+    let mut buf = [0i8; 5];
+    let mut len = buf.len() as i32;
+    let expected_buffer = [0i8];
+
+    let result = unsafe {
+        build_instruction_getversion_frame(buf.as_mut_ptr(), &mut len, &mut frame_to_send)
+    };
+
+    assert_eq!(0, result, "Frame generation should have worked");
+    match_buffers(&expected_buffer, &buf, len as usize);
+}
+
+#[test]
+fn parse_instruction_getversion() {
+    let mut buf = [0i8];
+    let mut code = 5u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let result =
+        unsafe { parse_instruction_frame(buf.as_mut_ptr(), buf.len() as i32, &mut code, &mut ptr) };
+
+    assert_eq!(0, result, "Frame decoding should have worked");
+    assert_ne!(ptr::null_mut(), ptr, "Should have allocated some memory");
+
+    assert_eq!(
+        __instructions_enum_INST_GETVERSION, code,
+        "Should have GetVersion instruction id"
+    );
+
+    unsafe { free(ptr) };
+}
+
+#[test]
+fn build_feedback_getversion() {
+    let mut frame_to_send = s_fb_getversion_params {
+        major: 1,
+        minor: 0,
+        patch: 99,
+    };
+
+    let mut buf = [0i8; 4];
+    let mut len = buf.len() as i32;
+    let expected_frame = [0i8, 1, 0, 99];
+
+    let result =
+        unsafe { build_feedback_getversion_frame(buf.as_mut_ptr(), &mut len, &mut frame_to_send) };
+
+    assert_eq!(0, result, "Frame generation should have worked");
+    match_buffers(&expected_frame, &buf, len as usize);
+}
+
+#[test]
+fn parse_feedback_getversion() {
+    let mut buf = [0i8, 1, 0, 99];
+    let mut code = 6u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let mut expected_struct = s_fb_getversion_params {
+        major: 1,
+        minor: 0,
+        patch: 99,
+    };
+    let result =
+        unsafe { parse_feedback_frame(buf.as_mut_ptr(), buf.len() as i32, &mut code, &mut ptr) };
+
+    assert_eq!(0, result, "Frame parsing should have worked");
+    assert_ne!(ptr::null_mut(), ptr, "Should have allocated some memory");
+
+    assert_eq!(
+        __feedbacks_enum_FB_GETVERSION, code,
+        "Should have a getVersion feedback code"
+    );
+
+    let decoded_struct = unsafe { *(ptr as *mut s_fb_getversion_params) };
+    assert_eq!(
+        expected_struct, decoded_struct,
+        "Decoded structure should match expected one"
+    );
     unsafe { free(ptr) };
 }
