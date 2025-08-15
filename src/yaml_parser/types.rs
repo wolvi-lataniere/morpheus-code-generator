@@ -2,16 +2,6 @@ use std::convert::TryFrom;
 use std::fmt::{self, Debug, Formatter};
 
 /// Parameter type internal reprensentation
-///
-/// Example:
-/// ```
-/// let from : String = "u8".into();
-/// if let Some(t) = ParameterType::try_from(from) {
-///    
-/// } else {
-///    panic!("Failed decoding");
-/// }
-/// ```
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ParameterType {
     Uint64,
@@ -113,7 +103,7 @@ impl TryFrom<String> for ParameterType {
             "i64" | "int64" => Ok(Self::Int64),
             "string" | "str" => Ok(Self::String),
             "bool" | "boolean" => Ok(Self::Bool),
-            _ => Err(format!("Unknown type {}", from)),
+            _ => Err(format!("Unknown type {from}")),
         }
     }
 }

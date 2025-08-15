@@ -7,8 +7,14 @@ authors = ["Aurelien VALADE <wolvi-lataniere>"]
 [target.aarch64-apple-darwin]
 profiler=true
 
+[workspace]
+resolver = "3"
+members = ["integration_tests"]
+
 [dev-dependencies]
 cc="1.2.32"
+target-triple = "0.1.4"
+bindgen = "0.71.0"
 
 [dependencies]
 serde = "1.0"

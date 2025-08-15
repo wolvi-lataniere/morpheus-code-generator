@@ -368,7 +368,7 @@ impl CppFileGenerator {
 int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void **parameters)
 {{
     if ((buffer == NULL) || (code == NULL) || (parameters == NULL))
-        return -1;
+        return -3;
 
     switch (buffer[0])
     {{
@@ -386,7 +386,7 @@ int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void
         self.file.write_all(
             r#"
     default: 
-        return -1;
+        return -2;
     }
 }
 
