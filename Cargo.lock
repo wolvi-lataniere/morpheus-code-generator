@@ -103,6 +103,7 @@ name = "codes-parser"
 version = "0.1.0"
 dependencies = [
  "bindgen 0.71.1",
+ "bindgen 0.72.0",
  "cc",
  "getopts",
  "serde",
@@ -146,17 +147,6 @@ checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown",
-]
-
-[[package]]
-name = "integration-tests"
-version = "0.1.0"
-dependencies = [
- "bindgen 0.72.0",
- "cc",
- "codes-parser",
- "serde",
- "serde_derive",
 ]
 
 [[package]]

@@ -1,6 +1,4 @@
 #[cfg(test)]
-use crate::match_buffers;
-#[cfg(test)]
 use std::os::raw::c_void;
 #[cfg(test)]
 use std::ptr;
@@ -33,6 +31,19 @@ impl PartialEq for s_fb_getversion_params {
     fn eq(&self, other: &Self) -> bool {
         self.major == other.major && self.minor == other.minor && self.patch == other.patch
     }
+}
+
+#[cfg(test)]
+pub fn match_buffers(expected: &[i8], buffer: &[i8], len: usize) {
+    assert_eq!(
+        len,
+        expected.len(),
+        "Buffer length should match expectation"
+    );
+    assert!(
+        expected.eq(&buffer[..len]),
+        "Buffer content should match expectation"
+    );
 }
 
 #[test]
@@ -313,7 +324,7 @@ fn parse_instruction_sleeptime() {
 
 #[test]
 fn build_instruction_getversion() {
-    let mut frame_to_send = s_inst_getversion_params { _address: 0u8 };
+    let mut frame_to_send = s_inst_getversion_params {};
     let mut buf = [0i8; 5];
     let mut len = buf.len() as i32;
     let expected_buffer = [0i8];
