@@ -1,10 +1,11 @@
 #[cfg(test)]
+use crate::match_buffers;
+#[cfg(test)]
 use std::os::raw::c_void;
 #[cfg(test)]
 use std::ptr;
 
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
 impl PartialEq for s_inst_sleeppin_params {
     fn eq(&self, other: &Self) -> bool {
         self.wake_pin_active_state == other.wake_pin_active_state
@@ -32,19 +33,6 @@ impl PartialEq for s_fb_getversion_params {
     fn eq(&self, other: &Self) -> bool {
         self.major == other.major && self.minor == other.minor && self.patch == other.patch
     }
-}
-
-#[cfg(test)]
-fn match_buffers(expected: &[i8], buffer: &[i8], len: usize) {
-    assert_eq!(
-        len,
-        expected.len(),
-        "Buffer length should match expectation"
-    );
-    assert!(
-        expected.eq(&buffer[..len]),
-        "Buffer content should match expectation"
-    );
 }
 
 #[test]
@@ -383,7 +371,7 @@ fn parse_feedback_getversion() {
     let mut code = 6u32;
     let mut ptr = ptr::null_mut::<c_void>();
 
-    let mut expected_struct = s_fb_getversion_params {
+    let expected_struct = s_fb_getversion_params {
         major: 1,
         minor: 0,
         patch: 99,
