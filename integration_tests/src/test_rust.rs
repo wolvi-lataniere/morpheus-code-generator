@@ -150,7 +150,6 @@ fn parse_getversion_inst() {
     assert_eq!(expected, decoded, "Decoded frame should match expectation");
 }
 
-#[ignore]
 #[test]
 fn generate_coverage_inst() {
     let frame = Instructions::CoverageTest {

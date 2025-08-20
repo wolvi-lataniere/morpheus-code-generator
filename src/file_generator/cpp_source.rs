@@ -16,7 +16,7 @@ const FILE_HEADER: &str = r#"
 "#;
 
 pub struct CppFileGenerator {
-    file: Box<dyn Write>,
+    writer: Box<dyn Write>,
     headerfile_name: String,
 }
 
@@ -297,14 +297,14 @@ impl CppFileGenerator {
             .replace(".c", ".h");
 
         Ok(CppFileGenerator {
-            file: Box::new(file),
+            writer: Box::new(file),
             headerfile_name,
         })
     }
 
     fn write_header(&mut self) -> Result<(), io::Error> {
-        self.file.write_all(FILE_HEADER.as_bytes())?;
-        self.file.write_all(
+        self.writer.write_all(FILE_HEADER.as_bytes())?;
+        self.writer.write_all(
             format!(
                 r#"#include "{}"
 #include <zephyr/zephyr.h>
@@ -323,7 +323,7 @@ impl CppFileGenerator {
         instruction: &InstFeedback,
     ) -> Result<(), io::Error> {
         WriteFrameBuilder::new(FrameType::Instruction, name, instruction)
-            .build_frame(&mut self.file)
+            .build_frame(&mut self.writer)
     }
 
     fn write_feedback_frame_builder(
@@ -332,7 +332,7 @@ impl CppFileGenerator {
         name: &str,
         instruction: &InstFeedback,
     ) -> Result<(), io::Error> {
-        WriteFrameBuilder::new(FrameType::Feedback, name, instruction).build_frame(&mut self.file)
+        WriteFrameBuilder::new(FrameType::Feedback, name, instruction).build_frame(&mut self.writer)
     }
 
     fn write_feedback_frame_parser(
@@ -341,7 +341,7 @@ impl CppFileGenerator {
         name: &str,
         fb: &InstFeedback,
     ) -> Result<(), io::Error> {
-        WriteFrameBuilder::new(FrameType::Feedback, name, fb).build_frame_parser(&mut self.file)
+        WriteFrameBuilder::new(FrameType::Feedback, name, fb).build_frame_parser(&mut self.writer)
     }
 
     fn write_instruction_frame_parser(
@@ -351,7 +351,7 @@ impl CppFileGenerator {
         inst: &InstFeedback,
     ) -> Result<(), io::Error> {
         WriteFrameBuilder::new(FrameType::Instruction, name, inst)
-            .build_frame_parser(&mut self.file)
+            .build_frame_parser(&mut self.writer)
     }
 
     fn write_frames_dispatch(
@@ -362,7 +362,7 @@ impl CppFileGenerator {
         let dispatch_type = builder_type.long();
         let struct_name = builder_type.struct_name();
         // To the frame decoding hub
-        self.file.write_all(
+        self.writer.write_all(
             format!(
                 r#"
 int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void **parameters)
@@ -379,11 +379,11 @@ int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void
 
         instructions.iter().for_each(|(_k, name, code)| {
             WriteFrameBuilder::new(builder_type, name, code)
-                .build_dispatch_case(&mut self.file)
+                .build_dispatch_case(&mut self.writer)
                 .unwrap();
         });
 
-        self.file.write_all(
+        self.writer.write_all(
             r#"
     default: 
         return -2;

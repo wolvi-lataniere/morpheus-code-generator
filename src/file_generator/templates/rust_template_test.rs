@@ -101,7 +101,7 @@ mod test {
             TypesEnum::u8_from_buffer(&test_value).expect("Should success parsing");
 
         assert_eq!(0, rest.len());
-        assert_eq!(TypesEnum::U8(99), result);
+        assert_eq!(99u8, result);
     }
 
     #[test]
@@ -111,7 +111,7 @@ mod test {
             TypesEnum::i8_from_buffer(&test_value).expect("Should success parsing");
 
         assert_eq!(1, rest.len());
-        assert_eq!(TypesEnum::I8(-99), result);
+        assert_eq!(-99i8, result);
     }
 
     #[test]
@@ -121,7 +121,7 @@ mod test {
             TypesEnum::u16_from_buffer(&test_value).expect("Should success parsing");
 
         assert_eq!(0, rest.len());
-        assert_eq!(TypesEnum::U16(99 + 256), result);
+        assert_eq!(99u16 + 256u16, result);
     }
 
     #[test]
@@ -131,7 +131,7 @@ mod test {
             TypesEnum::i16_from_buffer(&test_value).expect("Should success parsing");
 
         assert_eq!(1, rest.len());
-        assert_eq!(TypesEnum::I16(-99), result);
+        assert_eq!(-99i16, result);
     }
 
     #[test]
@@ -141,7 +141,7 @@ mod test {
             TypesEnum::u32_from_buffer(&test_value).expect("Should success parsing");
 
         assert_eq!(0, rest.len());
-        assert_eq!(TypesEnum::U32(99 + 256), result);
+        assert_eq!(99u32 + 256u32, result);
     }
 
     #[test]
@@ -151,7 +151,27 @@ mod test {
             TypesEnum::i32_from_buffer(&test_value).expect("Should success parsing");
 
         assert_eq!(1, rest.len());
-        assert_eq!(TypesEnum::I32(-99), result);
+        assert_eq!(-99i32, result);
+    }
+
+    #[test]
+    fn parse_u64_from_buffer() {
+        let test_value = [99u8, 1, 0, 0, 0, 0, 0, 0];
+        let (result, rest) =
+            TypesEnum::u64_from_buffer(&test_value).expect("Should success parsing");
+
+        assert_eq!(0, rest.len());
+        assert_eq!(99u64 + 256u64, result);
+    }
+
+    #[test]
+    fn parse_i64_from_buffer() {
+        let test_value = [-99i8 as u8, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0];
+        let (result, rest) =
+            TypesEnum::i64_from_buffer(&test_value).expect("Should success parsing");
+
+        assert_eq!(1, rest.len());
+        assert_eq!(-99i64, result);
     }
 
     #[test]
@@ -161,7 +181,7 @@ mod test {
             TypesEnum::bool_from_buffer(&test_value).expect("Should success parsing");
 
         assert_eq!(4, rest.len());
-        assert_eq!(TypesEnum::Bool(true), result);
+        assert!(result);
     }
 
     #[test]
@@ -173,6 +193,6 @@ mod test {
             TypesEnum::string_from_buffer(test_buffer.as_slice()).expect("Should success parsing");
 
         assert_eq!(2, rest.len());
-        assert_eq!(result, TypesEnum::Str(expected_string));
+        assert_eq!(result, expected_string);
     }
 }

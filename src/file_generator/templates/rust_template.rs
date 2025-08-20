@@ -17,10 +17,11 @@ enum TypesEnum {
 }
 
 #[derive(Debug)]
-enum TypesEnumError {
+pub enum TypesEnumError {
     TooShort,
     NoStringTerminationFound,
     FailedToDecodeString,
+    UnknownCode,
 }
 
 impl TypesEnum {
@@ -34,82 +35,110 @@ impl TypesEnum {
         }
     }
 
-    pub fn u8_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
+    pub fn u8_from_buffer(buffer: &[u8]) -> Result<(u8, &[u8]), TypesEnumError> {
         if buffer.len() < Self::U8(0).size() {
             Err(TypesEnumError::TooShort)
         } else {
-            Ok((Self::U8(u8::from_le(buffer[0])), &buffer[1..]))
+            Ok((
+                u8::from_le_bytes(buffer[0..1].try_into().unwrap()),
+                &buffer[1..],
+            ))
         }
     }
 
-    pub fn i8_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
+    pub fn i8_from_buffer(buffer: &[u8]) -> Result<(i8, &[u8]), TypesEnumError> {
         if buffer.len() < Self::I8(0).size() {
             Err(TypesEnumError::TooShort)
         } else {
-            Ok((Self::I8(i8::from_le_bytes([buffer[0]])), &buffer[1..]))
+            Ok((
+                i8::from_le_bytes(buffer[0..1].try_into().unwrap()),
+                &buffer[1..],
+            ))
         }
     }
 
-    pub fn u16_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
+    pub fn u16_from_buffer(buffer: &[u8]) -> Result<(u16, &[u8]), TypesEnumError> {
         if buffer.len() < Self::U16(0).size() {
             Err(TypesEnumError::TooShort)
         } else {
             Ok((
-                Self::U16(u16::from_le_bytes(buffer[0..2].try_into().unwrap())),
+                u16::from_le_bytes(buffer[0..2].try_into().unwrap()),
                 &buffer[2..],
             ))
         }
     }
 
-    pub fn i16_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
+    pub fn i16_from_buffer(buffer: &[u8]) -> Result<(i16, &[u8]), TypesEnumError> {
         if buffer.len() < Self::I16(0).size() {
             Err(TypesEnumError::TooShort)
         } else {
             Ok((
-                Self::I16(i16::from_le_bytes(buffer[0..2].try_into().unwrap())),
+                i16::from_le_bytes(buffer[0..2].try_into().unwrap()),
                 &buffer[2..],
             ))
         }
     }
 
-    pub fn u32_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
+    pub fn u32_from_buffer(buffer: &[u8]) -> Result<(u32, &[u8]), TypesEnumError> {
         if buffer.len() < Self::U32(0).size() {
             Err(TypesEnumError::TooShort)
         } else {
             Ok((
-                Self::U32(u32::from_le_bytes(buffer[0..4].try_into().unwrap())),
+                u32::from_le_bytes(buffer[0..4].try_into().unwrap()),
                 &buffer[4..],
             ))
         }
     }
 
-    pub fn i32_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
+    pub fn i32_from_buffer(buffer: &[u8]) -> Result<(i32, &[u8]), TypesEnumError> {
         if buffer.len() < Self::I32(0).size() {
             Err(TypesEnumError::TooShort)
         } else {
             Ok((
-                Self::I32(i32::from_le_bytes(buffer[0..4].try_into().unwrap())),
+                i32::from_le_bytes(buffer[0..4].try_into().unwrap()),
                 &buffer[4..],
             ))
         }
     }
 
-    pub fn bool_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
-        if buffer.len() < Self::Bool(false).size() {
+    pub fn u64_from_buffer(buffer: &[u8]) -> Result<(u64, &[u8]), TypesEnumError> {
+        if buffer.len() < Self::U64(0).size() {
             Err(TypesEnumError::TooShort)
         } else {
-            Ok((Self::Bool(buffer[0] != 0), &buffer[1..]))
+            Ok((
+                u64::from_le_bytes(buffer[0..8].try_into().unwrap()),
+                &buffer[8..],
+            ))
         }
     }
 
-    pub fn string_from_buffer(buffer: &[u8]) -> Result<(Self, &[u8]), TypesEnumError> {
+    pub fn i64_from_buffer(buffer: &[u8]) -> Result<(i64, &[u8]), TypesEnumError> {
+        if buffer.len() < Self::I64(0).size() {
+            Err(TypesEnumError::TooShort)
+        } else {
+            Ok((
+                i64::from_le_bytes(buffer[0..8].try_into().unwrap()),
+                &buffer[8..],
+            ))
+        }
+    }
+
+    pub fn bool_from_buffer(buffer: &[u8]) -> Result<(bool, &[u8]), TypesEnumError> {
+        if buffer.len() < Self::Bool(false).size() {
+            Err(TypesEnumError::TooShort)
+        } else {
+            Ok((buffer[0] != 0, &buffer[1..]))
+        }
+    }
+
+    pub fn string_from_buffer(buffer: &[u8]) -> Result<(String, &[u8]), TypesEnumError> {
         let termination = buffer.iter().position(|v| *v == 0u8);
         match termination {
             None => Err(TypesEnumError::NoStringTerminationFound),
             Some(index) => {
                 let string = String::from_utf8(buffer[..index].to_vec());
                 if let Ok(string) = string {
-                    Ok((Self::Str(string), &buffer[index + 1..]))
+                    Ok((string, &buffer[index + 1..]))
                 } else {
                     Err(TypesEnumError::FailedToDecodeString)
                 }
