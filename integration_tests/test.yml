@@ -21,6 +21,37 @@ codes:
         - name: patch
           data_type: u8
           description: Patch version number
+  0x01:
+    name: CoverageTest
+    instruction:
+      description: |
+        Tests all untested types
+      parameters:
+        - name: a_string
+          data_type: string
+          description: A string value
+        - name: a_u64
+          data_type: u64
+          description: A 64 bits unsigned int
+        - name: a_i64
+          data_type: i64
+          description: A 64 bits signed int
+    feedback:
+      description: |
+        Test some untested types
+      parameters:
+        - name: a_i8
+          data_type: i8
+          description: A 8bits signed integer
+        - name: a_i16
+          data_type: i16
+          description: A 16 bits signed integer
+        - name: a_i32
+          data_type: i32
+          description: A 32 bits signed integer
+        - name: a_string
+          data_type: string
+          description: A string
   0x03:
     name: SleepPin
     instruction:

@@ -149,3 +149,21 @@ fn parse_getversion_inst() {
 
     assert_eq!(expected, decoded, "Decoded frame should match expectation");
 }
+
+#[ignore]
+#[test]
+fn generate_coverage_inst() {
+    let frame = Instructions::CoverageTest {
+        a_u64: 125000000,
+        a_i64: -15699,
+        a_string: "HelloMessage".into(),
+    };
+
+    let encoded = frame.to_bytes();
+    let expected = [
+        1u8, b'H', b'e', b'l', b'l', b'o', b'M', b'e', b's', b's', b'a', b'g', b'e', 0, 0x40, 0x59,
+        0x73, 0x07, 0, 0, 0, 0, 0xad, 0xc2, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    ];
+
+    match_buffers(&expected, &encoded);
+}
