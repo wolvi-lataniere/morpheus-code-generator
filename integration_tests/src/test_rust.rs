@@ -166,3 +166,58 @@ fn generate_coverage_inst() {
 
     match_buffers(&expected, &encoded);
 }
+
+#[test]
+fn parse_coverage_inst() {
+    let expected_struct = Instructions::CoverageTest {
+        a_u64: 125000000,
+        a_i64: -15699,
+        a_string: "HelloMessage".into(),
+    };
+
+    let encoded = [
+        1u8, b'H', b'e', b'l', b'l', b'o', b'M', b'e', b's', b's', b'a', b'g', b'e', 0, 0x40, 0x59,
+        0x73, 0x07, 0, 0, 0, 0, 0xad, 0xc2, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    ];
+
+    let decoded = Instructions::from_bytes(&encoded).expect("Should sucessfully parse the frame");
+
+    assert_eq!(expected_struct, decoded)
+}
+
+#[test]
+fn generate_coverage_fb() {
+    let input_struct = Feedbacks::CoverageTest {
+        a_i8: 99,
+        a_i16: 1983,
+        a_i32: -19488,
+        a_string: String::from("This is a test string"),
+    };
+    let encoded = input_struct.to_bytes();
+
+    let expected = [
+        1u8, 99u8, 0xbf, 0x07, 0xe0, 0xb3, 0xff, 0xff, b'T', b'h', b'i', b's', b' ', b'i', b's',
+        b' ', b'a', b' ', b't', b'e', b's', b't', b' ', b's', b't', b'r', b'i', b'n', b'g', 0,
+    ];
+
+    match_buffers(&expected, &encoded);
+}
+
+#[test]
+fn parse_coverage_fb() {
+    let expected_struct = Feedbacks::CoverageTest {
+        a_i8: 99,
+        a_i16: 1983,
+        a_i32: -19488,
+        a_string: String::from("This is a test string"),
+    };
+
+    let encoded = [
+        1u8, 99u8, 0xbf, 0x07, 0xe0, 0xb3, 0xff, 0xff, b'T', b'h', b'i', b's', b' ', b'i', b's',
+        b' ', b'a', b' ', b't', b'e', b's', b't', b' ', b's', b't', b'r', b'i', b'n', b'g', 0,
+    ];
+
+    let decoded = Feedbacks::from_bytes(&encoded).expect("Should sucessfully decode this frame");
+
+    assert_eq!(expected_struct, decoded);
+}
