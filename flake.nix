@@ -58,6 +58,32 @@
             # ''-I${pkgs.glib.out}/lib/glib-2.0/include/''
           ];
         };
+
+        packages = rec {
+
+          morpheus-code-generator = pkgs.rustPlatform.buildRustPackage {
+            pname = "codes-parser";
+            version = "1.0.0";
+            src = self;
+            nativeBuildInputs = [ pkgs.pkg-config ];
+            buildInputs = with pkgs; [
+              clang
+              llvmPackages.bintools
+              git
+            ];
+
+            cargoHash = "sha256-E7Hn7gYMl3RWc5GO8aRIEDevSGm/sPEJQrJNk3w9Eso=";
+
+            meta = {
+               description = "Frames builder/parser code generator for Morpheus project";
+               homepage = "https://github.com/wolvi-lataniere/morpheus-code-generator";
+               license = pkgs.lib.licenses.gpl3;
+               maintainers = "Aurélien VALADE <wolvi-lataniere>";
+            };
+
+          };
+          default = morpheus-code-generator;
+        };
       }
     );
 }

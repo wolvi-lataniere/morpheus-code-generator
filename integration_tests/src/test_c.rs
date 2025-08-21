@@ -83,7 +83,7 @@ fn sleeping_failing_frame() {
 #[test]
 fn sleeping_frame_too_small_buffer() {
     let mut buffer: [i8; 1] = [0; 1];
-    let mut len: i32 = 1;
+    let mut len: i32 = buffer.len() as i32;
     let mut parameters = s_fb_sleeppin_params { success: true };
     let result =
         unsafe { build_feedback_sleeppin_frame(buffer.as_mut_ptr(), &mut len, &mut parameters) };
@@ -572,4 +572,30 @@ fn parse_coverage_fb() {
     let decoded = unsafe { *(ptr as *mut s_fb_coveragetest_params) };
 
     assert_eq!(expected_struct, decoded);
+}
+
+#[test]
+fn parse_invalid_string() {
+    let mut encoded = [
+        1u8, b'H', b'e', b'l', b'l', b'o', b'M', b'e', b's', b's', b'a', b'g', b'e', 0x40, 0x59,
+        0x73, 0x07, 0, 0, 0, 0, 0xad, 0xc2, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    ]
+    .iter()
+    .map(|u| *u as i8)
+    .collect::<Vec<i8>>();
+
+    let mut code = 0u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let result = unsafe {
+        parse_instruction_frame(
+            encoded.as_mut_ptr(),
+            encoded.len() as i32,
+            &mut code,
+            &mut ptr,
+        )
+    };
+
+    assert_ne!(0, result, "Parsing should fail");
+    assert_eq!(ptr::null_mut(), ptr, "Should have freed allocated memory");
 }

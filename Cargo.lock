@@ -100,7 +100,7 @@ dependencies = [
 
 [[package]]
 name = "codes-parser"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "bindgen 0.71.1",
  "cc",

@@ -75,14 +75,17 @@ impl<'a> WriteFrameBuilder<'a> {
                 r#"
 int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{type_short}_{lowercase_name}_params* parameters)
 {{
-    int position = 0;
 
     if ((buffer == NULL) || (len == NULL) || (parameters == NULL))
       return -1;
     
-    if (position < *len) buffer[position++] = {key};
+    buffer_slice slice = {{.head=buffer, .len= (size_t) *len, .valid = true}};
+
+    if (*len > 0) buffer[0] = {key};
     else return -1;
-        "#
+
+    slice = move_buffer_slice(slice, 1);
+"#
             )
             .as_bytes(),
         )?;
@@ -91,48 +94,12 @@ int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{t
             self.instruction
                 .parameters
                 .iter()
-                .map(|p| match p.data_type {
-                    ParameterType::Bool | ParameterType::Uint8 | ParameterType::Int8 => {
-                        format!(
-                            r#"
-    if (position < *len) buffer[position++] = (uint8_t) parameters->{};
-    else return -1;
-    "#,
-                            p.name
-                        )
-                    }
-                    ParameterType::Int16
-                    | ParameterType::Uint16
-                    | ParameterType::Int32
-                    | ParameterType::Uint32
-                    | ParameterType::Int64
-                    | ParameterType::Uint64 => format!(
-                        r#"
-    if ((position + {}) <= *len) {{
-        memcpy(&buffer[position], &parameters->{}, {});
-        position += {};
-    }}
-    else return -1;
-    "#,
-                        p.data_type.size(),
-                        p.name,
-                        p.data_type.size(),
-                        p.data_type.size()
-                    ),
-
-                    ParameterType::String => format!(
-                        r#"
-    if (position < *len) {{
-        int max_len= (*len) - position;
-        int string_len = strlen(parameters->{})+1;
-        if (string_len>max_len) string_len=max_len;
-        memcpy(&buffer[position], parameters->{}, string_len);
-        position += string_len;
-    }}
-    else return -1;
-                    "#,
-                        p.name, p.name
-                    ),
+                .map(|p| {
+                    format!(
+                        "\t\tslice = write_{}_to_buffer(slice, parameters->{});\n",
+                        p.data_type.to_rust_type_string(),
+                        p.name
+                    )
                 })
                 .collect::<Vec<String>>()
                 .join("\n")
@@ -141,7 +108,10 @@ int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{t
 
         file.write_all(
             r#"
-    *len = position;
+    if (!slice.valid) {{
+      return -1;
+    }}
+    *len = (slice.head - buffer);
 
     return 0;
 }
@@ -162,10 +132,7 @@ int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{t
                 r#"
 int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{type_short}_{lowercase_name}_params* parameters)
 {{
-    int position = 0;
     const size_t p_size = sizeof(struct s_{type_short}_{lowercase_name}_params);
-
-
     if (buffer == NULL)
         return -1;
 
@@ -173,8 +140,11 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
         return -1;
         
     // Check the code
-    if (buffer[position++] != {key}) return -1;
-        "#
+    if (buffer[0] != {key}) return -1;
+
+    buffer_slice slice = {{.head=buffer, .len=(size_t)len, .valid=true}};
+    slice = move_buffer_slice(slice, 1);
+"#
             )
             .as_bytes(),
         )?;
@@ -182,59 +152,12 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
         file.write_all(
             inst.parameters
                 .iter()
-                .map(|p| match p.data_type {
-                    ParameterType::Bool => format!(
-                        r#"
-    if (position < len) parameters->{} = (buffer[position++] != 0) ;
-    else return -1;
-    "#,
-                        p.name
-                    ),
-                    ParameterType::Uint8 | ParameterType::Int8 => format!(
-                        r#"
-    if (position < len) parameters->{} = ({}) buffer[position++] ;
-    else return -1;
-    "#,
+                .map(|p| {
+                    format!(
+                        "\t\tparameters->{} = parse_{}_from_buffer(&slice);",
                         p.name,
-                        p.data_type.to_cpp_type_string()
-                    ),
-                    ParameterType::Int16
-                    | ParameterType::Uint16
-                    | ParameterType::Int32
-                    | ParameterType::Uint32
-                    | ParameterType::Int64
-                    | ParameterType::Uint64 => format!(
-                        r#"
-    if ((position + {}) <= len) {{
-        memcpy(&parameters->{}, &buffer[position], {});
-        position += {};
-    }}
-    else return -1;
-    "#,
-                        p.data_type.size(),
-                        p.name,
-                        p.data_type.size(),
-                        p.data_type.size()
-                    ),
-
-                    ParameterType::String => format!(
-                        r#"
-    if (position < len) {{
-        int copy_len = strnlen(&buffer[position], (len) - position);
-        if (len<0) {{
-           return -1; 
-        }}
-        // free buffer if not null
-        if (parameters->{} != NULL) k_free(parameters->{});
-        parameters->{} = (char*)k_malloc(copy_len+1);
-        strncpy(parameters->{}, &buffer[position], copy_len);
-        parameters->{}[copy_len] = 0; // Ensure last character is null
-        position += copy_len+1;
-    }}
-    else return -1;
-                    "#,
-                        p.name, p.name, p.name, p.name, p.name
-                    ),
+                        p.data_type.to_rust_type_string()
+                    )
                 })
                 .collect::<Vec<String>>()
                 .join("\n")
@@ -242,10 +165,30 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
         )?;
 
         file.write_all(
-            r#"
+            format!(
+                r#"
+    if (!slice.valid) {{
+       {}return -1;
+    }}
     return 0;
-}
-        "#
+}}
+        "#,
+                inst.parameters
+                    .iter()
+                    .filter_map(|p| if ParameterType::String == p.data_type {
+                        Some(format!(
+                            r#"
+        if (parameters->{} != NULL) {{
+            free(parameters->{});
+        }}"#,
+                            p.name, p.name
+                        ))
+                    } else {
+                        None
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n\t\t\t")
+            )
             .as_bytes(),
         )
     }
@@ -267,7 +210,12 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
                 *parameters = k_malloc(psize);
                 memset(*parameters, 0, psize);
                 *code = {frametype_upper}_{uppercase_name};
-                return parse_{frametype_long}_{lowercase_name}_frame(buffer, len, (struct s_{frametype_lower}_{lowercase_name}_params*)*parameters);
+                int result =  parse_{frametype_long}_{lowercase_name}_frame(buffer, len, (struct s_{frametype_lower}_{lowercase_name}_params*)*parameters);
+                if (result < 0) {{
+                   k_free(*parameters);
+                   *parameters=NULL;
+                }}
+                return result;
             }}
         "#
                     )
@@ -303,7 +251,6 @@ impl CppFileGenerator {
         self.writer.write_all(
             format!(
                 r#"#include "{}"
-#include <zephyr/zephyr.h>
     "#,
                 self.headerfile_name
             )

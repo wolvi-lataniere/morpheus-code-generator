@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Aurelien VALADE <wolvi-lataniere>"]
 
-[target.aarch64-apple-darwin]
-profiler=true
-
-
 [build-dependencies]
 codes-parser = {path = "../"}
 bindgen = "0.72.0"

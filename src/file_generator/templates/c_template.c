@@ -2,6 +2,23 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <zephyr/zephyr.h>
+
+typedef struct {
+   char* head;
+   size_t len;
+   bool valid;
+} buffer_slice;
+
+inline buffer_slice move_buffer_slice(buffer_slice in, size_t by) {
+  if (in.valid) {
+    in.valid = (in.len >= by);
+    in.head += by;
+    in.len -= by;
+  }
+  return in;
+}
 
 inline int strnlen(char* input, size_t len) {
   int position = 0;
@@ -15,3 +32,173 @@ inline int strnlen(char* input, size_t len) {
   return -1;
 }
 
+inline buffer_slice write_bool_to_buffer(buffer_slice in, bool value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    in.head[0] = value?1:0;
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_i8_to_buffer(buffer_slice in, int8_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    in.head[0] = value;
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_u8_to_buffer(buffer_slice in, uint8_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    in.head[0] = value;
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_i16_to_buffer(buffer_slice in, int16_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    memcpy(in.head, &value, sizeof(value));
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_u16_to_buffer(buffer_slice in, uint16_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    memcpy(in.head, &value, sizeof(value));
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_i32_to_buffer(buffer_slice in, int32_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    memcpy(in.head, &value, sizeof(value));
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_u32_to_buffer(buffer_slice in, uint32_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    memcpy(in.head, &value, sizeof(value));
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_i64_to_buffer(buffer_slice in, int64_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    memcpy(in.head, &value, sizeof(value));
+  }
+  return move_buffer_slice(in, sizeof(value));
+}
+
+inline buffer_slice write_u64_to_buffer(buffer_slice in, uint64_t value) {
+  if (in.valid && in.len >= sizeof(value)) {
+    memcpy(in.head, &value, sizeof(value));
+  }
+  return move_buffer_slice(in, sizeof(value));
+ }
+
+inline buffer_slice write_String_to_buffer(buffer_slice in, const char* value) {
+  size_t value_len = strlen(value)+1;
+  if (in.valid && in.len >= value_len) {
+    memcpy(in.head, value, value_len);
+    return move_buffer_slice(in, value_len);
+  }else {
+    in.valid=false;
+  }
+  return in;
+}
+
+inline bool parse_bool_from_buffer(buffer_slice* slice) {
+  bool value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    value = slice->head[0] != 0;
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+inline uint8_t parse_u8_from_buffer(buffer_slice* slice) {
+  uint8_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    value = slice->head[0];
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline int8_t parse_i8_from_buffer(buffer_slice* slice) {
+  int8_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    value = slice->head[0];
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline uint16_t parse_u16_from_buffer(buffer_slice* slice) {
+  uint16_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    memcpy(&value, slice->head, sizeof(value));
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline int16_t parse_i16_from_buffer(buffer_slice* slice) {
+  int16_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    memcpy(&value, slice->head, sizeof(value));
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline uint32_t parse_u32_from_buffer(buffer_slice* slice) {
+  uint32_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    memcpy(&value, slice->head, sizeof(value));
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline int32_t parse_i32_from_buffer(buffer_slice* slice) {
+  int32_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    memcpy(&value, slice->head, sizeof(value));
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline uint64_t parse_u64_from_buffer(buffer_slice* slice) {
+  uint64_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    memcpy(&value, slice->head, sizeof(value));
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline int64_t parse_i64_from_buffer(buffer_slice* slice) {
+  int64_t value;
+  if (slice->valid && slice->len >= sizeof(value)){
+    memcpy(&value, slice->head, sizeof(value));
+  }
+  *slice = move_buffer_slice(*slice, sizeof(value));
+  return value;
+}
+
+inline char* parse_String_from_buffer(buffer_slice* slice) {
+  char* value = NULL;
+  if (slice->valid) {
+    int len = strnlen(slice->head, slice->len);
+    if (len>0) {
+      len++;
+      value = (char*)k_malloc((size_t)len);
+      memcpy(value, slice->head, len);
+      *slice = move_buffer_slice(*slice, len);
+    } else 
+    {
+      slice->valid = false;
+    }
+  }
+  return value;
+}
