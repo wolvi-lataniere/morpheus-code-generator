@@ -35,6 +35,23 @@ impl PartialEq for s_fb_getversion_params {
     }
 }
 
+impl PartialEq for s_inst_coveragetest_params {
+    fn eq(&self, other: &Self) -> bool {
+        self.a_u64 == other.a_u64
+            && self.a_i64 == other.a_i64
+            && unsafe { strcmp(self.a_string, other.a_string) } == 0
+    }
+}
+
+impl PartialEq for s_fb_coveragetest_params {
+    fn eq(&self, other: &Self) -> bool {
+        self.a_i8 == other.a_i8
+            && self.a_i16 == other.a_i16
+            && self.a_i32 == other.a_i32
+            && unsafe { strcmp(self.a_string, other.a_string) } == 0
+    }
+}
+
 #[test]
 fn sleeping_sucessfull_frame() {
     let mut buffer = [0i8; 2];
@@ -393,4 +410,166 @@ fn parse_feedback_getversion() {
         "Decoded structure should match expected one"
     );
     unsafe { free(ptr) };
+}
+
+#[test]
+fn generate_coverage_inst() {
+    let mut the_string = "HelloMessage"
+        .as_bytes()
+        .iter()
+        .map(|i| *i as i8)
+        .collect::<Vec<i8>>();
+    let mut base_struct = s_inst_coveragetest_params {
+        a_u64: 125000000,
+        a_i64: -15699,
+        a_string: the_string.as_mut_ptr(),
+    };
+
+    let expected = [
+        1u8, b'H', b'e', b'l', b'l', b'o', b'M', b'e', b's', b's', b'a', b'g', b'e', 0, 0x40, 0x59,
+        0x73, 0x07, 0, 0, 0, 0, 0xad, 0xc2, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    ]
+    .iter()
+    .map(|u| *u as i8)
+    .collect::<Vec<i8>>();
+
+    let mut buffer = [0i8; 255];
+    let mut len: i32 = buffer.len() as i32;
+
+    let result = unsafe {
+        build_instruction_coveragetest_frame(buffer.as_mut_ptr(), &mut len, &mut base_struct)
+    };
+
+    assert_eq!(0, result, "Generation should success");
+
+    match_buffers(&expected, &buffer, len as usize);
+}
+
+#[test]
+fn parse_coverage_inst() {
+    let mut the_string = "HelloMessage"
+        .as_bytes()
+        .iter()
+        .map(|i| *i as i8)
+        .collect::<Vec<i8>>();
+    let expected_struct = s_inst_coveragetest_params {
+        a_u64: 125000000,
+        a_i64: -15699,
+        a_string: the_string.as_mut_ptr(),
+    };
+
+    let mut encoded = [
+        1u8, b'H', b'e', b'l', b'l', b'o', b'M', b'e', b's', b's', b'a', b'g', b'e', 0, 0x40, 0x59,
+        0x73, 0x07, 0, 0, 0, 0, 0xad, 0xc2, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+    ]
+    .iter()
+    .map(|u| *u as i8)
+    .collect::<Vec<i8>>();
+
+    let mut code = 0u32;
+    let mut ptr = ptr::null_mut::<c_void>();
+
+    let result = unsafe {
+        parse_instruction_frame(
+            encoded.as_mut_ptr(),
+            encoded.len() as i32,
+            &mut code,
+            &mut ptr,
+        )
+    };
+
+    assert_eq!(0, result, "Parsing should success");
+    assert_ne!(
+        ptr::null_mut(),
+        ptr,
+        "Should have allocated some memory for the data"
+    );
+
+    let data = unsafe { *(ptr as *mut s_inst_coveragetest_params) };
+
+    assert_eq!(expected_struct, data, "Generated structure should match");
+
+    unsafe {
+        free(data.a_string as *mut c_void);
+        free(ptr);
+    }
+}
+
+#[test]
+fn generate_coverage_fb() {
+    let mut msg_string = "This is a test string"
+        .as_bytes()
+        .iter()
+        .map(|i| *i as i8)
+        .collect::<Vec<i8>>();
+
+    let mut input_struct = s_fb_coveragetest_params {
+        a_i8: 99,
+        a_i16: 1983,
+        a_i32: -19488,
+        a_string: msg_string.as_mut_ptr(),
+    };
+
+    let mut buffer = [0i8; 255];
+    let mut len = buffer.len() as i32;
+
+    let result = unsafe {
+        build_feedback_coveragetest_frame(buffer.as_mut_ptr(), &mut len, &mut input_struct)
+    };
+
+    assert_eq!(0, result);
+
+    let expected = [
+        1u8, 99u8, 0xbf, 0x07, 0xe0, 0xb3, 0xff, 0xff, b'T', b'h', b'i', b's', b' ', b'i', b's',
+        b' ', b'a', b' ', b't', b'e', b's', b't', b' ', b's', b't', b'r', b'i', b'n', b'g', 0,
+    ]
+    .iter()
+    .map(|i| *i as i8)
+    .collect::<Vec<i8>>();
+
+    match_buffers(&expected, &buffer, len as usize);
+}
+
+#[test]
+fn parse_coverage_fb() {
+    let mut msg_string = "This is a test string"
+        .as_bytes()
+        .iter()
+        .map(|i| *i as i8)
+        .collect::<Vec<i8>>();
+
+    let expected_struct = s_fb_coveragetest_params {
+        a_i8: 99,
+        a_i16: 1983,
+        a_i32: -19488,
+        a_string: msg_string.as_mut_ptr(),
+    };
+
+    let mut encoded = [
+        1u8, 99u8, 0xbf, 0x07, 0xe0, 0xb3, 0xff, 0xff, b'T', b'h', b'i', b's', b' ', b'i', b's',
+        b' ', b'a', b' ', b't', b'e', b's', b't', b' ', b's', b't', b'r', b'i', b'n', b'g', 0,
+    ]
+    .iter()
+    .map(|i| *i as i8)
+    .collect::<Vec<i8>>();
+
+    let mut ptr = ptr::null_mut::<c_void>();
+    let mut code = 0u32;
+
+    let result = unsafe {
+        parse_feedback_frame(
+            encoded.as_mut_ptr(),
+            encoded.len() as i32,
+            &mut code,
+            &mut ptr,
+        )
+    };
+
+    assert_eq!(0, result);
+    assert_eq!(__feedbacks_enum_FB_COVERAGETEST, code);
+    assert_ne!(ptr::null_mut(), ptr);
+
+    let decoded = unsafe { *(ptr as *mut s_fb_coveragetest_params) };
+
+    assert_eq!(expected_struct, decoded);
 }
