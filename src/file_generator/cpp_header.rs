@@ -1,4 +1,4 @@
-use crate::yaml_parser;
+use crate::{InstFeedback, InstFeedbackParameter, yaml_parser};
 use std::fs::File;
 use std::io::{self, Write};
 use std::vec::Vec;
@@ -22,48 +22,8 @@ impl FileGenerator for CppHeaderGenerator {
     fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
         self.write_header()?;
 
-        self.write_enumerations(codes.codes.iter().collect())?;
-
-        codes
-            .codes
-            .iter()
-            .for_each(|(_, c)| self.create_parameters_structure(&c.instruction, &c.name, "inst"));
-
-        codes
-            .codes
-            .iter()
-            .for_each(|(_, c)| self.create_parameters_structure(&c.feedback, &c.name, "fb"));
-
-        codes.codes.iter().for_each(|(_k, code)| {
-            if code.feedback.is_some() {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
-int build_feedback_{}_frame(char* buffer, int *len, struct s_fb_{}_params* parameters);
-"#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase()
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-            if code.instruction.is_some() {
-                self.file
-                    .write_all(
-                        format!(
-                            r#"
-int build_instruction_{}_frame(char* buffer, int *len, struct s_inst_{}_params* parameters);
-"#,
-                            code.name.to_lowercase(),
-                            code.name.to_lowercase()
-                        )
-                        .as_bytes(),
-                    )
-                    .unwrap();
-            }
-        });
+        self.declare_feedbacks(codes)?;
+        self.declare_inscructions(codes)?;
 
         self.write_footer()?;
         self.file.flush()?;
@@ -84,25 +44,60 @@ impl CppHeaderGenerator {
         Ok(())
     }
 
-    fn write_enumerations(
-        &mut self,
-        parameters: Vec<(&u32, &yaml_parser::Codes)>,
-    ) -> Result<(), io::Error> {
-        self.write_enumerations_header("Instructions")?;
-        self.file.write_all(
-            self.get_formatted_enumeration_codes(&parameters, "INST", |c| c.instruction.is_some())
-                .as_bytes(),
-        )?;
-        self.write_enumerations_footer("Instructions")?;
+    fn declare_feedbacks(&mut self, parameters: &yaml_parser::CodesFile) -> Result<(), io::Error> {
+        self.declare_feedback_enum(parameters)?;
+        self.declare_feedback_structures(parameters);
+        self.declare_feedbacks_functions(parameters);
+        Ok(())
+    }
 
+    fn declare_feedback_enum(&mut self, parameters: &crate::CodesFile) -> Result<(), io::Error> {
         self.write_enumerations_header("Feedbacks")?;
         self.file.write_all(
-            self.get_formatted_enumeration_codes(&parameters, "FB", |c| c.feedback.is_some())
+            self.get_formatted_enumeration_codes(&parameters.get_feedbacks(), "FB")
                 .as_bytes(),
         )?;
         self.write_enumerations_footer("Feedbacks")?;
-
         Ok(())
+    }
+
+    fn declare_feedback_structures(&mut self, parameters: &crate::CodesFile) {
+        parameters
+            .get_feedbacks()
+            .iter()
+            .for_each(|(_, name, params)| self.create_parameters_structure(name, params, "fb"));
+    }
+
+    fn declare_inscructions(
+        &mut self,
+        parameters: &yaml_parser::CodesFile,
+    ) -> Result<(), io::Error> {
+        self.declare_instructions_enum(parameters)?;
+
+        self.declare_instructions_structures(parameters);
+
+        self.declare_instructions_functions(parameters);
+        Ok(())
+    }
+
+    fn declare_instructions_enum(
+        &mut self,
+        parameters: &crate::CodesFile,
+    ) -> Result<(), io::Error> {
+        self.write_enumerations_header("Instructions")?;
+        self.file.write_all(
+            self.get_formatted_enumeration_codes(&parameters.get_instructions(), "INST")
+                .as_bytes(),
+        )?;
+        self.write_enumerations_footer("Instructions")?;
+        Ok(())
+    }
+
+    fn declare_instructions_structures(&mut self, parameters: &crate::CodesFile) {
+        parameters
+            .get_instructions()
+            .iter()
+            .for_each(|(_, name, params)| self.create_parameters_structure(name, params, "inst"));
     }
 
     fn write_footer(&mut self) -> Result<(), io::Error> {
@@ -117,28 +112,15 @@ extern int parse_instruction_frame(char* buffer, int len, Instructions* code, vo
         Ok(())
     }
 
-    fn get_formatted_enumeration_codes<F>(
+    fn get_formatted_enumeration_codes(
         &self,
-        parameters: &Vec<(&u32, &yaml_parser::Codes)>,
+        parameters: &Vec<(u32, String, yaml_parser::InstFeedback)>,
         prefix: &str,
-        filter: F,
-    ) -> String
-    where
-        F: Fn(&yaml_parser::Codes) -> bool,
-    {
+    ) -> String {
         parameters
             .iter()
-            .filter_map(|(instruction_code, code)| {
-                if filter(code) {
-                    Some(format!(
-                        "{}_{} = {}",
-                        prefix,
-                        code.name.to_uppercase(),
-                        instruction_code
-                    ))
-                } else {
-                    None
-                }
+            .map(|(instruction_code, name, _)| {
+                format!("{}_{} = {}", prefix, name.to_uppercase(), instruction_code)
             })
             .collect::<Vec<String>>()
             .join(",\n\t")
@@ -172,30 +154,60 @@ typedef enum __{}_enum {{
 
     fn create_parameters_structure(
         &mut self,
-        parameters: &Option<yaml_parser::InstFeedback>,
         name: &str,
+        parameters: &InstFeedback,
         struct_type: &str,
     ) {
-        if let Some(inst) = &parameters {
-            self.file
-                .write_all(
-                    format!(
-                        r#"
+        self.file
+            .write_all(
+                format!(
+                    r#"
 struct s_{}_{}_params {{
     {}
 }};
 "#,
-                        struct_type,
-                        name.to_lowercase(),
-                        inst.parameters
-                            .iter()
-                            .map(|p| { p.c_parameter_definition_with_comment() })
-                            .collect::<Vec<String>>()
-                            .join("\n\t")
-                    )
-                    .as_bytes(),
+                    struct_type,
+                    name.to_lowercase(),
+                    parameters
+                        .parameters
+                        .iter()
+                        .map(|p| { p.c_parameter_definition_with_comment() })
+                        .collect::<Vec<String>>()
+                        .join("\n\t")
                 )
+                .as_bytes(),
+            )
+            .unwrap();
+    }
+
+    fn declare_feedbacks_functions(&mut self, codes: &crate::CodesFile) {
+        codes.get_feedbacks().iter().for_each(|(_, name, _)| {
+            self.declare_build_function(name, "feedback", "fb").unwrap();
+        });
+    }
+
+    fn declare_instructions_functions(&mut self, codes: &crate::CodesFile) {
+        codes.get_instructions().iter().for_each(|(_, name, _)| {
+            self.declare_build_function(name, "instruction", "inst")
                 .unwrap();
-        }
+        });
+    }
+
+    fn declare_build_function(
+        &mut self,
+        name: &str,
+        inst: &str,
+        short: &str,
+    ) -> Result<(), io::Error> {
+        self.file.write_all(
+            format!(
+                r#"
+int build_{inst}_{}_frame(char* buffer, int *len, struct s_{short}_{}_params* parameters);
+"#,
+                name.to_lowercase(),
+                name.to_lowercase()
+            )
+            .as_bytes(),
+        )
     }
 }

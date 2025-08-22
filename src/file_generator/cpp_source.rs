@@ -4,9 +4,9 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::vec::Vec;
 
-use crate::file_generator::{FileGenerator, FrameType};
+use crate::file_generator::{FileGenerator, FrameType, LanguageModel};
 
-const FILE_HEADER: &'static [u8] = include_bytes!("./templates/c_template.c");
+const FILE_HEADER: &str = include_str!("./templates/c_template.c");
 
 pub struct CppFileGenerator {
     writer: Box<dyn Write>,
@@ -15,32 +15,15 @@ pub struct CppFileGenerator {
 
 impl FileGenerator for CppFileGenerator {
     fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
-        self.write_header()?;
-
-        codes.get_feedbacks().iter().for_each(|(k, name, inst)| {
-            self.write_feedback_frame_builder(*k, name, inst).unwrap();
-        });
-
-        // Create a set of inline implementation for readability and debugging
-        codes.get_instructions().iter().for_each(|(k, name, inst)| {
-            self.write_instruction_frame_builder(*k, name, inst)
-                .unwrap();
-        });
-
-        //     // Add to frame decoding
-        // Create a set of inline implementation for readability and debugging
-        codes.get_feedbacks().iter().for_each(|(k, name, fb)| {
-            self.write_feedback_frame_parser(*k, name, fb).unwrap();
-        });
-        // Create a set of inline implementation for readability and debugging
-        codes.get_instructions().iter().for_each(|(k, name, inst)| {
-            self.write_instruction_frame_parser(*k, name, inst).unwrap();
-        });
-
-        self.write_feedback_frames_dispatch(codes)?;
-        self.write_instruction_frames_dispatch(codes)?;
-
-        Ok(())
+        self.writer.write_all(
+            [
+                self.file_header(),
+                self.implement_feedbacks(codes),
+                self.implement_instructions(codes),
+            ]
+            .join("")
+            .as_bytes(),
+        )
     }
 }
 
@@ -64,13 +47,13 @@ impl<'a> WriteFrameBuilder<'a> {
         }
     }
 
-    pub fn build_frame(&self, file: &mut Box<dyn Write>) -> Result<(), io::Error> {
+    pub fn build_frame(&self) -> String {
         let lowercase_name = self.name.to_lowercase();
         let key = &self.key;
         let type_long = self.builder_type.long();
         let type_short = self.builder_type.short();
 
-        file.write_all(
+        [
             format!(
                 r#"
 int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{type_short}_{lowercase_name}_params* parameters)
@@ -85,12 +68,9 @@ int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{t
     else return -1;
 
     slice = move_buffer_slice(slice, 1);
-"#
-            )
-            .as_bytes(),
-        )?;
+"#)
+            ,
 
-        file.write_all(
             self.instruction
                 .parameters
                 .iter()
@@ -102,11 +82,8 @@ int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{t
                     )
                 })
                 .collect::<Vec<String>>()
-                .join("\n")
-                .as_bytes(),
-        )?;
+                .join("\n"),
 
-        file.write_all(
             r#"
     if (!slice.valid) {{
       return -1;
@@ -115,20 +92,17 @@ int build_{type_long}_{lowercase_name}_frame(char* buffer, int *len, struct s_{t
 
     return 0;
 }
-        "#
-            .as_bytes(),
-        )
+        "#.to_string()].join("")
     }
 
-    pub fn build_frame_parser(&self, file: &mut Box<dyn Write>) -> Result<(), io::Error> {
+    pub fn build_frame_parser(&self) -> String {
         let lowercase_name = self.name.to_lowercase();
         let key = &self.key;
         let inst = self.instruction;
         let type_long = self.builder_type.long();
         let type_short = self.builder_type.short();
 
-        file.write_all(
-            format!(
+        [    format!(
                 r#"
 int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{type_short}_{lowercase_name}_params* parameters)
 {{
@@ -145,11 +119,8 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
     buffer_slice slice = {{.head=buffer, .len=(size_t)len, .valid=true}};
     slice = move_buffer_slice(slice, 1);
 "#
-            )
-            .as_bytes(),
-        )?;
+            ),
 
-        file.write_all(
             inst.parameters
                 .iter()
                 .map(|p| {
@@ -160,11 +131,8 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
                     )
                 })
                 .collect::<Vec<String>>()
-                .join("\n")
-                .as_bytes(),
-        )?;
+                .join("\n"),
 
-        file.write_all(
             format!(
                 r#"
     if (!slice.valid) {{
@@ -189,21 +157,19 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
                     .collect::<Vec<String>>()
                     .join("\n\t\t\t")
             )
-            .as_bytes(),
-        )
+        ].join("")
     }
 
-    pub fn build_dispatch_case(&self, file: &mut Box<dyn Write>) -> Result<(), io::Error> {
+    pub fn build_dispatch_case(&self) -> String {
         let lowercase_name = self.name.to_lowercase();
         let uppercase_name = self.name.to_uppercase();
         let frametype_upper = self.builder_type.short().to_uppercase();
         let frametype_lower = self.builder_type.short();
         let frametype_long = self.builder_type.long();
         let key = format!("{frametype_upper}_{uppercase_name}");
-        file
-                .write_all(
-                    format!(
-                        r#"
+
+        format!(
+            r#"
         case {key}:
             {{
                 const size_t psize = sizeof(struct s_{frametype_lower}_{lowercase_name}_params);
@@ -218,9 +184,47 @@ int parse_{type_long}_{lowercase_name}_frame(char* buffer, int len, struct s_{ty
                 return result;
             }}
         "#
-                    )
-                    .as_bytes(),
-                )
+        )
+    }
+}
+
+impl LanguageModel for CppFileGenerator {
+    fn file_header(&self) -> String {
+        [
+            FILE_HEADER.to_string(),
+            format!(
+                r#"#include "{}"
+    "#,
+                self.headerfile_name
+            ),
+        ]
+        .join("")
+    }
+
+    fn implement_feedbacks(&self, codes: &yaml_parser::CodesFile) -> String {
+        [
+            self.implement_feedbacks_builders(codes),
+            self.implement_feedbacks_decoders(codes),
+            self.implement_feedback_frames_dispatch(codes),
+        ]
+        .join("")
+    }
+
+    fn implement_instructions(&self, codes: &yaml_parser::CodesFile) -> String {
+        [
+            self.implement_instructions_builders(codes),
+            self.implement_instructions_decoders(codes),
+            self.implement_instruction_frames_dispatch(codes),
+        ]
+        .join("")
+    }
+
+    fn declare_feedbacks(&self, _codes: &yaml_parser::CodesFile) -> String {
+        String::new()
+    }
+
+    fn declare_instructions(&self, _codes: &yaml_parser::CodesFile) -> String {
+        String::new()
     }
 }
 
@@ -246,66 +250,41 @@ impl CppFileGenerator {
         })
     }
 
-    fn write_header(&mut self) -> Result<(), io::Error> {
-        self.writer.write_all(FILE_HEADER)?;
-        self.writer.write_all(
-            format!(
-                r#"#include "{}"
-    "#,
-                self.headerfile_name
-            )
-            .as_bytes(),
-        )?;
-        Ok(())
-    }
-
     fn write_instruction_frame_builder(
-        &mut self,
+        &self,
         _key: u32,
         name: &str,
         instruction: &InstFeedback,
-    ) -> Result<(), io::Error> {
-        WriteFrameBuilder::new(FrameType::Instruction, name, instruction)
-            .build_frame(&mut self.writer)
+    ) -> String {
+        WriteFrameBuilder::new(FrameType::Instruction, name, instruction).build_frame()
     }
 
     fn write_feedback_frame_builder(
-        &mut self,
+        &self,
         _key: u32,
         name: &str,
         instruction: &InstFeedback,
-    ) -> Result<(), io::Error> {
-        WriteFrameBuilder::new(FrameType::Feedback, name, instruction).build_frame(&mut self.writer)
+    ) -> String {
+        WriteFrameBuilder::new(FrameType::Feedback, name, instruction).build_frame()
     }
 
-    fn write_feedback_frame_parser(
-        &mut self,
-        _key: u32,
-        name: &str,
-        fb: &InstFeedback,
-    ) -> Result<(), io::Error> {
-        WriteFrameBuilder::new(FrameType::Feedback, name, fb).build_frame_parser(&mut self.writer)
+    fn write_feedback_frame_parser(&self, _key: u32, name: &str, fb: &InstFeedback) -> String {
+        WriteFrameBuilder::new(FrameType::Feedback, name, fb).build_frame_parser()
     }
 
-    fn write_instruction_frame_parser(
-        &mut self,
-        _key: u32,
-        name: &str,
-        inst: &InstFeedback,
-    ) -> Result<(), io::Error> {
-        WriteFrameBuilder::new(FrameType::Instruction, name, inst)
-            .build_frame_parser(&mut self.writer)
+    fn write_instruction_frame_parser(&self, _key: u32, name: &str, inst: &InstFeedback) -> String {
+        WriteFrameBuilder::new(FrameType::Instruction, name, inst).build_frame_parser()
     }
 
     fn write_frames_dispatch(
-        &mut self,
+        &self,
         builder_type: FrameType,
         instructions: Vec<(u32, String, InstFeedback)>,
-    ) -> Result<(), io::Error> {
+    ) -> String {
         let dispatch_type = builder_type.long();
         let struct_name = builder_type.struct_name();
         // To the frame decoding hub
-        self.writer.write_all(
+        [
             format!(
                 r#"
 int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void **parameters)
@@ -316,17 +295,14 @@ int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void
     switch (buffer[0])
     {{
     "#
-            )
-            .as_bytes(),
-        )?;
-
-        instructions.iter().for_each(|(_k, name, code)| {
-            WriteFrameBuilder::new(builder_type, name, code)
-                .build_dispatch_case(&mut self.writer)
-                .unwrap();
-        });
-
-        self.writer.write_all(
+            ),
+            instructions
+                .iter()
+                .map(|(_k, name, code)| {
+                    WriteFrameBuilder::new(builder_type, name, code).build_dispatch_case()
+                })
+                .collect::<Vec<String>>()
+                .join(""),
             r#"
     default: 
         return -2;
@@ -334,21 +310,52 @@ int parse_{dispatch_type}_frame(char* buffer, int len, {struct_name}* code, void
 }
 
     "#
-            .as_bytes(),
-        )
+            .to_string(),
+        ]
+        .join("")
     }
 
-    fn write_feedback_frames_dispatch(
-        &mut self,
-        codes: &yaml_parser::CodesFile,
-    ) -> Result<(), io::Error> {
+    fn implement_feedback_frames_dispatch(&self, codes: &yaml_parser::CodesFile) -> String {
         self.write_frames_dispatch(FrameType::Feedback, codes.get_feedbacks())
     }
 
-    fn write_instruction_frames_dispatch(
-        &mut self,
-        codes: &yaml_parser::CodesFile,
-    ) -> Result<(), io::Error> {
+    fn implement_instruction_frames_dispatch(&self, codes: &yaml_parser::CodesFile) -> String {
         self.write_frames_dispatch(FrameType::Instruction, codes.get_instructions())
+    }
+
+    fn implement_feedbacks_builders(&self, codes: &crate::CodesFile) -> String {
+        codes
+            .get_feedbacks()
+            .iter()
+            .map(|(k, name, inst)| self.write_feedback_frame_builder(*k, name, inst))
+            .collect::<Vec<String>>()
+            .join("")
+    }
+
+    fn implement_instructions_builders(&self, codes: &crate::CodesFile) -> String {
+        codes
+            .get_instructions()
+            .iter()
+            .map(|(k, name, inst)| self.write_instruction_frame_builder(*k, name, inst))
+            .collect::<Vec<String>>()
+            .join("")
+    }
+
+    fn implement_feedbacks_decoders(&self, codes: &crate::CodesFile) -> String {
+        codes
+            .get_feedbacks()
+            .iter()
+            .map(|(k, name, fb)| self.write_feedback_frame_parser(*k, name, fb))
+            .collect::<Vec<String>>()
+            .join("")
+    }
+
+    fn implement_instructions_decoders(&self, codes: &crate::CodesFile) -> String {
+        codes
+            .get_instructions()
+            .iter()
+            .map(|(k, name, inst)| self.write_instruction_frame_parser(*k, name, inst))
+            .collect::<Vec<String>>()
+            .join("")
     }
 }

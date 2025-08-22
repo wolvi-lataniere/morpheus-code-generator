@@ -41,3 +41,11 @@ impl FrameType {
         }
     }
 }
+
+pub trait LanguageModel {
+    fn file_header(&self) -> String;
+    fn declare_feedbacks(&self, codes: &yaml_parser::CodesFile) -> String;
+    fn declare_instructions(&self, codes: &yaml_parser::CodesFile) -> String;
+    fn implement_feedbacks(&self, codes: &yaml_parser::CodesFile) -> String;
+    fn implement_instructions(&self, codes: &yaml_parser::CodesFile) -> String;
+}

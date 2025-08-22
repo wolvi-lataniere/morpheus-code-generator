@@ -1,9 +1,9 @@
-use crate::file_generator::FileGenerator;
+use crate::file_generator::{FileGenerator, LanguageModel};
 use crate::yaml_parser::{self, ParameterType};
 use std::fs::File;
 use std::io::{self, Write};
 
-const FILE_HEADER: &[u8] = include_bytes!("./templates/rust_template.rs");
+const FILE_HEADER: &str = include_str!("./templates/rust_template.rs");
 
 impl ParameterType {
     fn to_typesenum_name(&self) -> &str {
@@ -44,17 +44,183 @@ pub struct RustFileGenerator {
 impl FileGenerator for RustFileGenerator {
     fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
         // Show some Rust code
-        self.writer.write_all(FILE_HEADER)?;
+        self.writer.write_all(
+            [
+                self.file_header(),
+                self.declare_instructions(codes),
+                self.declare_feedbacks(codes),
+                self.implement_feedbacks(codes),
+                self.implement_instructions(codes),
+            ]
+            .join("")
+            .as_bytes(),
+        )
+    }
+}
 
-        self.declare_instructions(codes)?;
+impl LanguageModel for RustFileGenerator {
+    fn file_header(&self) -> String {
+        FILE_HEADER.to_string()
+    }
 
-        self.declare_feedbacks(codes)?;
+    fn declare_instructions(&self, codes: &crate::CodesFile) -> String {
+        [
+            r#"
+#[derive(PartialEq, Eq, Clone, Serialize, Debug)]
+pub enum Instructions {
+    "#
+            .to_string(),
+            codes
+                .codes
+                .iter()
+                .filter_map(|(_k, code)| {
+                    code.instruction.clone().map(|inst| {
+                        format!(
+                            "{}{},     // {}",
+                            code.name,
+                            Self::map_instfeedback_list_and_type(&inst),
+                            inst.description
+                        )
+                    })
+                })
+                .collect::<Vec<String>>()
+                .join("\n\t"),
+            r#"
+}
 
-        self.implement_feedbacks(codes)?;
 
-        self.implement_instructions(codes)?;
+"#
+            .to_string(),
+        ]
+        .join("")
+    }
 
-        Ok(())
+    fn declare_feedbacks(&self, codes: &crate::CodesFile) -> String {
+        [
+            r#"
+#[derive(PartialEq, Eq, Clone, Serialize, Debug)]
+pub enum Feedbacks {
+    "#
+            .to_string(),
+            codes
+                .codes
+                .iter()
+                .filter_map(|(_k, code)| {
+                    code.feedback.clone().map(|inst| {
+                        format!(
+                            "{}{},    // {}",
+                            code.name,
+                            Self::map_instfeedback_list_and_type(&inst),
+                            inst.description
+                        )
+                    })
+                })
+                .collect::<Vec<String>>()
+                .join("\n\t"),
+            r#"
+}
+
+
+
+"#
+            .to_string(),
+        ]
+        .join("")
+    }
+
+    fn implement_feedbacks(&self, codes: &crate::CodesFile) -> String {
+        [
+            r#"
+impl Feedbacks {
+    pub fn to_bytes(self) -> Vec<u8> {
+        match self {
+            "#
+            .to_string(),
+            codes
+                .codes
+                .iter()
+                .filter_map(|(&id, code)| {
+                    code.feedback
+                        .clone()
+                        .map(|code_fb| build_frame_from_fields(id, code, &code_fb))
+                })
+                .collect::<Vec<String>>()
+                .join(",\n\t\t\t"),
+            r#"
+        }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, TypesEnumError> {
+        match bytes[0] {
+            "#
+            .to_string(),
+            codes
+                .codes
+                .iter()
+                .filter_map(|(&id, code)| {
+                    code.feedback
+                        .clone()
+                        .map(|code_fb| parse_frame_to_fields(id, code, &code_fb))
+                })
+                .collect::<Vec<String>>()
+                .join(",\n\t\t\t"),
+            r#",
+    _ => Err(TypesEnumError::UnknownCode)
+        }
+    }
+}
+"#
+            .to_string(),
+        ]
+        .join("")
+    }
+
+    fn implement_instructions(&self, codes: &crate::CodesFile) -> String {
+        [
+            r#"
+
+impl Instructions {
+    pub fn to_bytes(self) -> Vec<u8> {
+        match self {
+    "#
+            .to_string(),
+            codes
+                .codes
+                .iter()
+                .filter_map(|(&id, code)| {
+                    code.instruction
+                        .clone()
+                        .map(|code_fb| build_frame_from_fields(id, code, &code_fb))
+                })
+                .collect::<Vec<String>>()
+                .join(",\n\t\t\t"),
+            r#"
+        }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, TypesEnumError> {
+        match bytes[0] {
+            "#
+            .to_string(),
+            codes
+                .codes
+                .iter()
+                .filter_map(|(&id, code)| {
+                    code.instruction
+                        .clone()
+                        .map(|code_fb| parse_frame_to_fields(id, code, &code_fb))
+                })
+                .collect::<Vec<String>>()
+                .join(",\n\t\t\t"),
+            r#",
+    _ => Err(TypesEnumError::UnknownCode)
+        }
+    }
+}
+"#
+            .to_string(),
+        ]
+        .join("")
     }
 }
 
@@ -73,197 +239,6 @@ impl RustFileGenerator {
     pub fn new(file_name: String) -> Result<Self, io::Error> {
         let file = Box::new(File::create(file_name)?);
         Ok(Self { writer: file })
-    }
-
-    fn declare_instructions(&mut self, codes: &crate::CodesFile) -> Result<(), io::Error> {
-        self.writer.write_all(
-            r#"
-#[derive(PartialEq, Eq, Clone, Serialize, Debug)]
-pub enum Instructions {
-    "#
-            .as_bytes(),
-        )?;
-        self.writer.write_all(
-            codes
-                .codes
-                .iter()
-                .filter_map(|(_k, code)| {
-                    code.instruction.clone().map(|inst| {
-                        format!(
-                            "{}{},     // {}",
-                            code.name,
-                            Self::map_instfeedback_list_and_type(&inst),
-                            inst.description
-                        )
-                    })
-                })
-                .collect::<Vec<String>>()
-                .join("\n\t")
-                .as_bytes(),
-        )?;
-
-        self.writer.write_all(
-            r#"
-}
-
-
-"#
-            .as_bytes(),
-        )?;
-
-        Ok(())
-    }
-
-    fn declare_feedbacks(&mut self, codes: &crate::CodesFile) -> Result<(), io::Error> {
-        self.writer.write_all(
-            r#"
-#[derive(PartialEq, Eq, Clone, Serialize, Debug)]
-pub enum Feedbacks {
-    "#
-            .as_bytes(),
-        )?;
-        self.writer.write_all(
-            codes
-                .codes
-                .iter()
-                .filter_map(|(_k, code)| {
-                    code.feedback.clone().map(|inst| {
-                        format!(
-                            "{}{}",
-                            code.name,
-                            Self::map_instfeedback_list_and_type(&inst)
-                        )
-                    })
-                })
-                .collect::<Vec<String>>()
-                .join(",\n\t")
-                .as_bytes(),
-        )?;
-        self.writer.write_all(
-            r#"
-}
-
-
-
-"#
-            .as_bytes(),
-        )?;
-        Ok(())
-    }
-
-    fn implement_feedbacks(&mut self, codes: &crate::CodesFile) -> Result<(), io::Error> {
-        self.writer.write_all(
-            r#"
-impl Feedbacks {
-    pub fn to_bytes(self) -> Vec<u8> {
-        match self {
-            "#
-            .as_bytes(),
-        )?;
-        self.writer.write_all(
-            codes
-                .codes
-                .iter()
-                .filter_map(|(&id, code)| {
-                    code.feedback
-                        .clone()
-                        .map(|code_fb| build_frame_from_fields(id, code, &code_fb))
-                })
-                .collect::<Vec<Vec<u8>>>()
-                .join(",\n\t\t\t".as_bytes())
-                .as_slice(),
-        )?;
-        self.writer.write_all(
-            r#"
-        }
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, TypesEnumError> {
-        match bytes[0] {
-            "#
-            .as_bytes(),
-        )?;
-        self.writer.write_all(
-            codes
-                .codes
-                .iter()
-                .filter_map(|(&id, code)| {
-                    code.feedback
-                        .clone()
-                        .map(|code_fb| parse_frame_to_fields(id, code, &code_fb))
-                })
-                .collect::<Vec<String>>()
-                .join(",\n\t\t\t")
-                .as_bytes(),
-        )?;
-        self.writer.write_all(
-            r#",
-    _ => Err(TypesEnumError::UnknownCode)
-        }
-    }
-}
-"#
-            .as_bytes(),
-        )?;
-        Ok(())
-    }
-
-    fn implement_instructions(&mut self, codes: &crate::CodesFile) -> Result<(), io::Error> {
-        self.writer.write_all(
-            r#"
-
-impl Instructions {
-    pub fn to_bytes(self) -> Vec<u8> {
-        match self {
-    "#
-            .as_bytes(),
-        )?;
-        self.writer.write_all(
-            codes
-                .codes
-                .iter()
-                .filter_map(|(&id, code)| {
-                    code.instruction
-                        .clone()
-                        .map(|code_fb| build_frame_from_fields(id, code, &code_fb))
-                })
-                .collect::<Vec<Vec<u8>>>()
-                .join(",\n\t\t\t".as_bytes())
-                .as_slice(),
-        )?;
-        self.writer.write_all(
-            r#"
-        }
-    }
-
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, TypesEnumError> {
-        match bytes[0] {
-            "#
-            .as_bytes(),
-        )?;
-        self.writer.write_all(
-            codes
-                .codes
-                .iter()
-                .filter_map(|(&id, code)| {
-                    code.instruction
-                        .clone()
-                        .map(|code_fb| parse_frame_to_fields(id, code, &code_fb))
-                })
-                .collect::<Vec<String>>()
-                .join(",\n\t\t\t")
-                .as_bytes(),
-        )?;
-        self.writer.write_all(
-            r#",
-    _ => Err(TypesEnumError::UnknownCode)
-        }
-    }
-}
-"#
-            .as_bytes(),
-        )?;
-        Ok(())
     }
 }
 
@@ -303,8 +278,8 @@ fn parse_frame_to_fields(id: u32, code: &crate::Codes, code_fb: &crate::InstFeed
     )
 }
 
-fn build_frame_from_fields(id: u32, code: &crate::Codes, code_fb: &crate::InstFeedback) -> Vec<u8> {
-    let params = &code_fb
+fn build_frame_from_fields(id: u32, code: &crate::Codes, code_fb: &crate::InstFeedback) -> String {
+    let params = code_fb
         .parameters
         .iter()
         .map(|param| {
@@ -313,11 +288,9 @@ fn build_frame_from_fields(id: u32, code: &crate::Codes, code_fb: &crate::InstFe
                 param.data_type.to_typesenum_name(),
                 param.name
             )
-            .as_bytes()
-            .to_vec()
         })
-        .collect::<Vec<Vec<u8>>>()
-        .join(",".as_bytes());
+        .collect::<Vec<String>>()
+        .join(",");
 
     [
         format!(
@@ -330,10 +303,9 @@ fn build_frame_from_fields(id: u32, code: &crate::Codes, code_fb: &crate::InstFe
                 .collect::<Vec<String>>()
                 .join(","),
             id
-        )
-        .as_bytes(),
-        params.as_slice(),
-        "].concat()".as_bytes(),
+        ),
+        params,
+        "].concat()".to_string(),
     ]
     .concat()
 }
