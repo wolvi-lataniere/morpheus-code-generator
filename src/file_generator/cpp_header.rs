@@ -14,9 +14,9 @@ impl FileGenerator for CppHeaderGenerator {
         self.file.write_all(
             self.process_template(
                 HEADER_TEMPLATE,
-                Box::new(&language_models::CppLanguageModel {
+                &language_models::CppLanguageModel {
                     headerfile_name: None,
-                }),
+                },
                 codes,
             )
             .as_bytes(),

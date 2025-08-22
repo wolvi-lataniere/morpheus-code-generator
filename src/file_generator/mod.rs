@@ -16,7 +16,7 @@ pub trait FileGenerator {
     fn process_template(
         &self,
         template: &str,
-        model: Box<&dyn LanguageModel>,
+        model: &dyn LanguageModel,
         codes: &yaml_parser::CodesFile,
     ) -> String {
         template
