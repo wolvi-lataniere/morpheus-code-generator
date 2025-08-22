@@ -172,3 +172,11 @@ impl WriteToBuffer for TypesEnum {
         }
     }
 }
+
+// ##FEEDBACKS_DECLARATIONS##
+
+// ##INSTRUCTIONS_DECLARATIONS##
+
+// ##FEEDBACKS_IMPLEMENTATION##
+
+// ##INSTRUCTIONS_IMPLEMENTATION##

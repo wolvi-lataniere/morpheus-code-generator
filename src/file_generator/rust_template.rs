@@ -3,7 +3,7 @@ use crate::yaml_parser::{self, ParameterType};
 use std::fs::File;
 use std::io::{self, Write};
 
-const FILE_HEADER: &str = include_str!("./templates/rust_template.rs");
+const RUST_TEMPLATE: &str = include_str!("./templates/rust_template.rs");
 
 impl ParameterType {
     fn to_typesenum_name(&self) -> &str {
@@ -45,22 +45,19 @@ impl FileGenerator for RustFileGenerator {
     fn build_file(&mut self, codes: &yaml_parser::CodesFile) -> Result<(), io::Error> {
         // Show some Rust code
         self.writer.write_all(
-            [
-                self.file_header(),
-                self.declare_instructions(codes),
-                self.declare_feedbacks(codes),
-                self.implement_feedbacks(codes),
-                self.implement_instructions(codes),
-            ]
-            .join("")
-            .as_bytes(),
+            self.process_template(RUST_TEMPLATE, Box::new(self), codes)
+                .as_bytes(),
         )
     }
 }
 
 impl LanguageModel for RustFileGenerator {
-    fn file_header(&self) -> String {
-        FILE_HEADER.to_string()
+    fn custom_includes(&self) -> String {
+        String::new()
+    }
+
+    fn custom_footer(&self) -> String {
+        String::new()
     }
 
     fn declare_instructions(&self, codes: &crate::CodesFile) -> String {
